@@ -9,8 +9,8 @@ import (
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/util"
 
-	appconfig "service-feature/apps/executor/config"
-	"service-feature/apps/executor/service/sandbox"
+	appconfig "github.com/antinvestor/builder/apps/executor/config"
+	"github.com/antinvestor/builder/apps/executor/service/sandbox"
 )
 
 func main() {

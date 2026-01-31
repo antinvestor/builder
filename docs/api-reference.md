@@ -1,8 +1,8 @@
-# Service-Feature API Reference
+# builder API Reference
 
 ## Overview
 
-Service-Feature exposes its API via Connect-RPC (gRPC-compatible with HTTP/JSON support). All endpoints require authentication via JWT Bearer tokens.
+builder exposes its API via Connect-RPC (gRPC-compatible with HTTP/JSON support). All endpoints require authentication via JWT Bearer tokens.
 
 **Base URL:** `https://feature.api.example.com`
 

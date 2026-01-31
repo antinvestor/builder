@@ -1,4 +1,4 @@
-# Service-Feature Architecture
+# builder Architecture
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@
 
 ## System Overview
 
-Service-Feature is an autonomous feature-building platform that uses event-driven architecture to orchestrate the end-to-end process of analyzing codebases, planning implementations, generating code, and verifying changes.
+builder is an autonomous feature-building platform that uses event-driven architecture to orchestrate the end-to-end process of analyzing codebases, planning implementations, generating code, and verifying changes.
 
 ### Design Principles
 

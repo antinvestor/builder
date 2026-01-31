@@ -3,7 +3,7 @@ package config
 import (
 	"github.com/pitabwire/frame/config"
 
-	"service-feature/internal/events"
+	"github.com/antinvestor/builder/internal/events"
 )
 
 // WorkerConfig defines configuration for the worker service.

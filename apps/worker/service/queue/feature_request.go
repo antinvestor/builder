@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	appconfig "service-feature/apps/worker/config"
-	"service-feature/apps/worker/service/repository"
-	"service-feature/internal/events"
+	appconfig "github.com/antinvestor/builder/apps/worker/config"
+	"github.com/antinvestor/builder/apps/worker/service/repository"
+	"github.com/antinvestor/builder/internal/events"
 )
 
 // EventsEmitter emits events.

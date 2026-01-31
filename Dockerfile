@@ -22,7 +22,7 @@ COPY . .
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s -X main.Version=$(git describe --tags --always 2>/dev/null || echo 'dev')" \
-    -o /build/service-feature \
+    -o /build/builder \
     ./apps/default/cmd/main.go
 
 # =============================================================================
@@ -50,7 +50,7 @@ RUN mkdir -p /var/lib/feature-service/workspaces && \
     chown -R feature:feature /home/feature
 
 # Copy binary from builder
-COPY --from=builder /build/service-feature /usr/local/bin/service-feature
+COPY --from=builder /build/builder /usr/local/bin/builder
 
 # Copy migrations if they exist
 COPY --from=builder /build/migrations /app/migrations 2>/dev/null || true
@@ -79,4 +79,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Run the service
-ENTRYPOINT ["/usr/local/bin/service-feature"]
+ENTRYPOINT ["/usr/local/bin/builder"]

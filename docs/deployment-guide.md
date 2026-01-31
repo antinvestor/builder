@@ -1,8 +1,8 @@
-# Service-Feature Deployment Guide
+# builder Deployment Guide
 
 ## Overview
 
-This guide covers deploying Service-Feature in a production Kubernetes environment. The platform is designed for horizontal scalability, high availability, and operational observability.
+This guide covers deploying builder in a production Kubernetes environment. The platform is designed for horizontal scalability, high availability, and operational observability.
 
 ---
 
@@ -741,7 +741,7 @@ spec:
       containers:
       - name: migrate
         image: registry.example.com/feature-service:latest
-        command: ["/service-feature"]
+        command: ["/builder"]
         args: ["--migrate"]
         envFrom:
         - configMapRef:

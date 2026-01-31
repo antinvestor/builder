@@ -3,7 +3,7 @@ package config
 import (
 	"github.com/pitabwire/frame/config"
 
-	"service-feature/internal/events"
+	"github.com/antinvestor/builder/internal/events"
 )
 
 // ReviewerConfig defines configuration for the reviewer service.

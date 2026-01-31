@@ -9,10 +9,10 @@ import (
 	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/util"
 
-	appconfig "service-feature/apps/worker/config"
-	"service-feature/apps/worker/service/events"
-	"service-feature/apps/worker/service/queue"
-	"service-feature/apps/worker/service/repository"
+	appconfig "github.com/antinvestor/builder/apps/worker/config"
+	"github.com/antinvestor/builder/apps/worker/service/events"
+	"github.com/antinvestor/builder/apps/worker/service/queue"
+	"github.com/antinvestor/builder/apps/worker/service/repository"
 )
 
 func main() {

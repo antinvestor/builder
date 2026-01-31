@@ -10,7 +10,7 @@ import (
 	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
 	"github.com/pitabwire/util"
 
-	appconfig "service-feature/apps/gateway/config"
+	appconfig "github.com/antinvestor/builder/apps/gateway/config"
 )
 
 func main() {

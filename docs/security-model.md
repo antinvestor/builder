@@ -1,8 +1,8 @@
-# Service-Feature Security Model
+# builder Security Model
 
 ## Overview
 
-This document defines the security architecture for Service-Feature, covering authentication, authorization, credential management, sandbox isolation, data protection, and audit capabilities.
+This document defines the security architecture for builder, covering authentication, authorization, credential management, sandbox isolation, data protection, and audit capabilities.
 
 ---
 

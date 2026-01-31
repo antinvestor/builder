@@ -7,8 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	appconfig "service-feature/apps/executor/config"
-	"service-feature/internal/events"
+	appconfig "github.com/antinvestor/builder/apps/executor/config"
+	"github.com/antinvestor/builder/internal/events"
 )
 
 // =============================================================================
@@ -174,12 +174,12 @@ func (r *MultiRunner) ParseResults(output string, exitCode int) (*events.TestRes
 	// Stub implementation
 	success := exitCode == 0
 	return &events.TestResult{
-		TotalTests:    1,
-		PassedTests:   1,
-		FailedTests:   0,
-		SkippedTests:  0,
-		Success:       success,
-		DurationMs:    1000,
-		TestCases:     []events.TestCaseResult{},
+		TotalTests:   1,
+		PassedTests:  1,
+		FailedTests:  0,
+		SkippedTests: 0,
+		Success:      success,
+		DurationMs:   1000,
+		TestCases:    []events.TestCaseResult{},
 	}, nil
 }

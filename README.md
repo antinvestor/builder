@@ -58,7 +58,7 @@ The platform consists of four independently deployable services:
 ### 1. Start Services
 
 ```bash
-cd service-feature
+cd builder
 
 # Start all core services (no observability)
 make up
@@ -90,7 +90,7 @@ make demo
 ## Project Structure
 
 ```
-service-feature/
+github.com/antinvestor/builder/
 ├── apps/                          # Independent services
 │   ├── gateway/                   # HTTP API entry point
 │   │   ├── cmd/main.go

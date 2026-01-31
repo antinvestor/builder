@@ -1,10 +1,10 @@
-# Service-Feature
+# builder
 
 Autonomous Feature-Building Platform - An event-driven system that autonomously builds features into existing applications using LLM-powered code generation.
 
 ## Overview
 
-Service-Feature is a git-agnostic, event-driven platform that:
+builder is a git-agnostic, event-driven platform that:
 - Builds features into existing applications autonomously
 - Works with any Git-compatible repository (GitHub, GitLab, Bitbucket, self-hosted)
 - Uses internal event-driven instructions for workflow orchestration
@@ -56,7 +56,7 @@ The platform follows a layered, event-sourced architecture:
 ## Directory Structure
 
 ```
-service-feature/
+github.com/antinvestor/builder/
 ├── apps/
 │   ├── default/                    # Main feature execution service
 │   │   ├── cmd/
@@ -111,7 +111,7 @@ service-feature/
 
 ```bash
 # Service Core
-SERVICE_NAME=service-feature
+SERVICE_NAME=builder
 SERVICE_PORT=80
 
 # Database Configuration
@@ -156,7 +156,7 @@ DEK_LOOKUP_TOKEN=${LOOKUP_HMAC_KEY}
 
 # OIDC Configuration
 OIDC_ISSUER_URL=https://auth.example.com
-OIDC_CLIENT_ID=service-feature
+OIDC_CLIENT_ID=builder
 OIDC_CLIENT_SECRET=${OIDC_SECRET}
 
 # Observability

@@ -1,4 +1,4 @@
-# Service-Feature Agent Architecture
+# builder Agent Architecture
 
 This document describes how to build agents for the autonomous feature-building platform using the Frame library primitives.
 
@@ -181,9 +181,9 @@ import (
 
     "github.com/pitabwire/frame"
 
-    "service-feature/apps/default/config"
-    "service-feature/apps/default/service/events"
-    featurequeue "service-feature/apps/default/service/queue"
+    "github.com/antinvestor/builder/apps/default/config"
+    "github.com/antinvestor/builder/apps/default/service/events"
+    featurequeue "github.com/antinvestor/builder/apps/default/service/queue"
 )
 
 func main() {
@@ -276,7 +276,7 @@ import (
 
     "github.com/pitabwire/frame/events"
 
-    featureevents "service-feature/apps/default/service/events"
+    featureevents "github.com/antinvestor/builder/apps/default/service/events"
 )
 
 type FeatureService struct {

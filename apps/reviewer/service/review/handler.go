@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	appconfig "service-feature/apps/reviewer/config"
-	"service-feature/internal/events"
+	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
+	"github.com/antinvestor/builder/internal/events"
 )
 
 // ReviewRequestHandler handles incoming review requests.
@@ -99,10 +99,10 @@ func convertPatchReferences(refs []events.PatchReference) []events.Patch {
 	patches := make([]events.Patch, len(refs))
 	for i, ref := range refs {
 		patches[i] = events.Patch{
-			FilePath:    ref.FilePath,
-			Action:      events.FileAction(ref.ChangeType),
-			DiffContent: ref.DiffContent,
-			LinesAdded:  ref.LinesAdded,
+			FilePath:     ref.FilePath,
+			Action:       events.FileAction(ref.ChangeType),
+			DiffContent:  ref.DiffContent,
+			LinesAdded:   ref.LinesAdded,
 			LinesRemoved: ref.LinesRemoved,
 		}
 	}

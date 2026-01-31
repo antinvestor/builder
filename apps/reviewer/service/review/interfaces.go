@@ -3,8 +3,8 @@ package review
 import (
 	"context"
 
-	appconfig "service-feature/apps/reviewer/config"
-	"service-feature/internal/events"
+	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
+	"github.com/antinvestor/builder/internal/events"
 )
 
 // =============================================================================

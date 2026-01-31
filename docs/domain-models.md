@@ -1,8 +1,8 @@
-# Service-Feature Domain Models
+# builder Domain Models
 
 ## Overview
 
-This document defines the domain models used throughout Service-Feature. These models follow the patterns established in service-profile and service-notification, using GORM for ORM with PostgreSQL.
+This document defines the domain models used throughout builder. These models follow the patterns established in service-profile and service-notification, using GORM for ORM with PostgreSQL.
 
 ---
 
@@ -842,7 +842,7 @@ package repository
 import (
     "context"
 
-    "github.com/antinvestor/service-feature/apps/default/service/models"
+    "github.com/antinvestor/github.com/antinvestor/builder/apps/default/service/models"
     "github.com/pitabwire/frame/datastore"
 )
 

@@ -1,8 +1,8 @@
-# Service-Feature Event Reference
+# builder Event Reference
 
 ## Overview
 
-Service-Feature uses event sourcing as its primary state management pattern. All state changes are captured as immutable events in a partitioned event log. This document catalogs all event types, their payloads, and causality relationships.
+builder uses event sourcing as its primary state management pattern. All state changes are captured as immutable events in a partitioned event log. This document catalogs all event types, their payloads, and causality relationships.
 
 ---
 

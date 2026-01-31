@@ -8,8 +8,8 @@ import (
 	"github.com/pitabwire/frame/config"
 	"github.com/pitabwire/util"
 
-	appconfig "service-feature/apps/reviewer/config"
-	"service-feature/apps/reviewer/service/review"
+	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
+	"github.com/antinvestor/builder/apps/reviewer/service/review"
 )
 
 func main() {

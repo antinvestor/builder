@@ -10,9 +10,9 @@ global:
 # =============================================================================
 scrape_configs:
   # Service Feature metrics
-  - job_name: 'service-feature'
+  - job_name: 'builder'
     static_configs:
-      - targets: ['service-feature:8080']
+      - targets: ['builder:8080']
     metrics_path: /metrics
     scrape_interval: 10s
 

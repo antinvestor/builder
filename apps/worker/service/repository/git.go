@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	appconfig "service-feature/apps/worker/config"
-	"service-feature/internal/events"
+	appconfig "github.com/antinvestor/builder/apps/worker/config"
+	"github.com/antinvestor/builder/internal/events"
 )
 
 // RepositoryService handles git repository operations.
