@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: feature-builder
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: feature-builder
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: feature-builder-executor
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: feature-builder
+    app.kubernetes.io/component: executor
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: feature-builder
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: feature-builder
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: feature-builder
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: feature-builder
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: feature-builder
+subjects:
+  - kind: ServiceAccount
+    name: feature-builder
+    namespace: feature-builder
+  - kind: ServiceAccount
+    name: feature-builder-executor
+    namespace: feature-builder

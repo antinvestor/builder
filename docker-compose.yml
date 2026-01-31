@@ -5,6 +5,7 @@
 #
 # Services:
 #   - gateway:  HTTP API entry point (stateless, scale horizontally)
+#   - webhook:  GitHub webhook handler (receives events, triggers builds)
 #   - worker:   Main event processor (scale based on queue depth)
 #   - reviewer: Security & architecture review (scale independently)
 #   - executor: Sandbox test execution (needs Docker socket, scale carefully)
@@ -20,6 +21,51 @@ services:
   # ===========================================================================
   # Application Services
   # ===========================================================================
+
+  # Webhook - GitHub webhook handler
+  webhook:
+    build:
+      context: .
+      dockerfile: apps/webhook/Dockerfile
+    container_name: feature-webhook
+    ports:
+      - "8081:8080"
+    environment:
+      SERVICE_NAME: feature_webhook
+      SERVER_ADDRESS: ":8080"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # GitHub configuration
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-0}
+      GITHUB_APP_PRIVATE_KEY_PATH: ${GITHUB_APP_PRIVATE_KEY_PATH:-}
+      GITHUB_APP_INSTALLATION_ID: ${GITHUB_APP_INSTALLATION_ID:-0}
+      # Queue configuration
+      QUEUE_FEATURE_REQUEST_URI: "nats://nats:4222/feature.requests"
+      QUEUE_FEATURE_REQUEST_NAME: "feature.requests"
+      QUEUE_GITHUB_EVENT_URI: "nats://nats:4222/github.events"
+      QUEUE_GITHUB_EVENT_NAME: "github.events"
+      # Processing configuration
+      ENABLE_ISSUE_PROCESSING: "true"
+      ENABLE_PR_PROCESSING: "true"
+      ENABLE_PUSH_PROCESSING: "false"
+      AUTO_TRIGGER_LABEL: ${AUTO_TRIGGER_LABEL:-auto-build}
+      ALLOWED_REPOSITORIES: ${ALLOWED_REPOSITORIES:-}
+    depends_on:
+      nats:
+        condition: service_started
+    networks:
+      - feature-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
 
   # Gateway - HTTP API entry point
   gateway:

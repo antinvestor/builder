@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: feature-builder
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: feature-builder
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: build.example.com
+      http:
+        paths:
+          # Webhook endpoint - receives GitHub events
+          - path: /webhooks
+            pathType: Prefix
+            backend:
+              service:
+                name: webhook
+                port:
+                  number: 80
+          # API endpoints - feature requests
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: 80
+          # Health checks
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: 80

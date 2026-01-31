@@ -1,0 +1,64 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: gateway
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: webhook
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: webhook
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: webhook
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: worker
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: worker
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: reviewer
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: reviewer
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reviewer
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: executor
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: executor
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: executor

@@ -1,0 +1,64 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: feature-builder-staging
+
+resources:
+  - ../../base
+
+nameSuffix: -staging
+
+patches:
+  # Reduce replicas for staging
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: .*
+
+  # Reduce HPA for staging
+  - patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 3
+    target:
+      kind: HorizontalPodAutoscaler
+      name: .*
+
+  # Update ingress host
+  - patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: build-staging.example.com
+    target:
+      kind: Ingress
+      name: feature-builder
+
+configMapGenerator:
+  - name: feature-builder-config
+    behavior: merge
+    literals:
+      - LOG_LEVEL=debug
+      - MAX_ITERATIONS=5
+
+labels:
+  - pairs:
+      environment: staging
+    includeSelectors: false
+
+images:
+  - name: ghcr.io/antinvestor/builder-webhook
+    newTag: staging
+  - name: ghcr.io/antinvestor/builder-gateway
+    newTag: staging
+  - name: ghcr.io/antinvestor/builder-worker
+    newTag: staging
+  - name: ghcr.io/antinvestor/builder-reviewer
+    newTag: staging
+  - name: ghcr.io/antinvestor/builder-executor
+    newTag: staging

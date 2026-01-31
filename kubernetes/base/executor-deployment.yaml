@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: executor
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: executor
+    app.kubernetes.io/component: executor
+    app.kubernetes.io/part-of: feature-builder
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: executor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: executor
+        app.kubernetes.io/component: executor
+    spec:
+      serviceAccountName: feature-builder-executor
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+      containers:
+        - name: executor
+          image: ghcr.io/antinvestor/builder-executor:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: SERVICE_NAME
+              value: "feature_executor"
+            - name: SERVER_ADDRESS
+              value: ":8080"
+          envFrom:
+            - configMapRef:
+                name: feature-builder-config
+            - secretRef:
+                name: feature-builder-secrets
+          volumeMounts:
+            - name: workspaces
+              mountPath: /var/lib/feature-service/workspaces
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+              readOnly: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: workspaces
+          emptyDir: {}
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: executor
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: executor
+    app.kubernetes.io/component: executor
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: executor

@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: feature-builder
+
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - configmap.yaml
+  - secrets.yaml
+  - webhook-deployment.yaml
+  - gateway-deployment.yaml
+  - worker-deployment.yaml
+  - reviewer-deployment.yaml
+  - executor-deployment.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/version: "0.1.0"
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false

@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reviewer
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: reviewer
+    app.kubernetes.io/component: reviewer
+    app.kubernetes.io/part-of: feature-builder
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reviewer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: reviewer
+        app.kubernetes.io/component: reviewer
+    spec:
+      serviceAccountName: feature-builder
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+      containers:
+        - name: reviewer
+          image: ghcr.io/antinvestor/builder-reviewer:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: SERVICE_NAME
+              value: "feature_reviewer"
+            - name: SERVER_ADDRESS
+              value: ":8080"
+          envFrom:
+            - configMapRef:
+                name: feature-builder-config
+            - secretRef:
+                name: feature-builder-secrets
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviewer
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: reviewer
+    app.kubernetes.io/component: reviewer
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: reviewer

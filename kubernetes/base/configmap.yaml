@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: feature-builder-config
+  namespace: feature-builder
+  labels:
+    app.kubernetes.io/name: feature-builder
+data:
+  LOG_LEVEL: "info"
+
+  # Queue configuration
+  QUEUE_FEATURE_REQUEST_NAME: "feature.requests"
+  QUEUE_FEATURE_RESULT_NAME: "feature.results"
+  QUEUE_REVIEW_REQUEST_NAME: "feature.review.requests"
+  QUEUE_REVIEW_RESULT_NAME: "feature.review.results"
+  QUEUE_EXECUTION_REQUEST_NAME: "feature.execution.requests"
+  QUEUE_EXECUTION_RESULT_NAME: "feature.execution.results"
+  QUEUE_GITHUB_EVENT_NAME: "github.events"
+  QUEUE_RETRY_L1_NAME: "feature.events.retry.1"
+  QUEUE_DLQ_NAME: "feature.events.dlq"
+
+  # Workspace configuration
+  WORKSPACE_BASE_PATH: "/var/lib/feature-service/workspaces"
+
+  # Sandbox configuration
+  SANDBOX_ENABLED: "true"
+  SANDBOX_TYPE: "docker"
+  SANDBOX_MEMORY_LIMIT_MB: "2048"
+  SANDBOX_CPU_LIMIT: "1.0"
+  SANDBOX_NETWORK_ENABLED: "false"
+  SANDBOX_TIMEOUT_SECONDS: "300"
+  MAX_CONCURRENT_EXECUTIONS: "5"
+
+  # Review thresholds
+  MAX_RISK_SCORE: "50"
+  MAX_SECURITY_RISK_SCORE: "30"
+  MAX_CRITICAL_ISSUES: "0"
+  MAX_BREAKING_CHANGES: "0"
+  MAX_ITERATIONS: "3"
+  BLOCK_ON_SECRETS: "true"
+
+  # Webhook configuration
+  ENABLE_ISSUE_PROCESSING: "true"
+  ENABLE_PR_PROCESSING: "true"
+  ENABLE_PUSH_PROCESSING: "false"
+  AUTO_TRIGGER_LABEL: "auto-build"
+
+  # LLM configuration
+  DEFAULT_LLM_PROVIDER: "anthropic"

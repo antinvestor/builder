@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: feature-builder
+  labels:
+    app.kubernetes.io/name: feature-builder
+    app.kubernetes.io/part-of: ant-build
