@@ -1,0 +1,25 @@
+{
+  "execution_id": "demo000000001",
+  "repository_url": "https://github.com/example/demo-repo.git",
+  "branch": "main",
+  "specification": {
+    "title": "Add greeting function",
+    "description": "Create a simple greeting function that returns a personalized message",
+    "requirements": [
+      "Function should accept a name parameter",
+      "Function should return 'Hello, {name}!' format",
+      "Add unit tests for the function",
+      "Handle empty name with default 'World'"
+    ],
+    "target_files": ["src/greeting.go"],
+    "language": "go"
+  },
+  "context": {
+    "iteration_number": 0,
+    "max_iterations": 3
+  },
+  "metadata": {
+    "requested_by": "demo",
+    "priority": "normal"
+  }
+}

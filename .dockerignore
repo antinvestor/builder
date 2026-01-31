@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build artifacts
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+coverage.out
+coverage.html
+*.test
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation (keep in build for reference)
+# *.md
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Local configuration
+.env
+.env.local
+*.local
+
+# Logs
+*.log
+logs/
+
+# Examples (not needed in production image)
+examples/
+
+# Scripts (only needed for demo)
+scripts/demo.sh

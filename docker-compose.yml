@@ -1,0 +1,332 @@
+# =============================================================================
+# Service Feature - Multi-Service Docker Compose
+# =============================================================================
+# Composable microservices that can be deployed and scaled independently.
+#
+# Services:
+#   - gateway:  HTTP API entry point (stateless, scale horizontally)
+#   - worker:   Main event processor (scale based on queue depth)
+#   - reviewer: Security & architecture review (scale independently)
+#   - executor: Sandbox test execution (needs Docker socket, scale carefully)
+#
+# Usage:
+#   make up           - Start all services
+#   make up-core      - Start core services only (no observability)
+#   make up-minimal   - Start minimal set (gateway + worker + infra)
+#   make scale-worker - Scale worker service
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # Application Services
+  # ===========================================================================
+
+  # Gateway - HTTP API entry point
+  gateway:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    container_name: feature-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SERVICE_NAME: feature_gateway
+      SERVER_ADDRESS: ":8080"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Queue configuration
+      QUEUE_FEATURE_REQUEST_URI: "nats://nats:4222/feature.requests"
+      QUEUE_FEATURE_REQUEST_NAME: "feature.requests"
+      QUEUE_FEATURE_RESULT_URI: "nats://nats:4222/feature.results"
+      QUEUE_FEATURE_RESULT_NAME: "feature.results"
+    depends_on:
+      nats:
+        condition: service_started
+    networks:
+      - feature-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+
+  # Worker - Main event processor
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: feature-worker
+    environment:
+      SERVICE_NAME: feature_worker
+      SERVER_ADDRESS: ":8080"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Database
+      DATABASE_URL: "postgres://feature:feature@postgres:5432/feature?sslmode=disable"
+      # Queue configuration
+      QUEUE_FEATURE_REQUEST_URI: "nats://nats:4222/feature.requests"
+      QUEUE_FEATURE_REQUEST_NAME: "feature.requests"
+      QUEUE_FEATURE_RESULT_URI: "nats://nats:4222/feature.results"
+      QUEUE_FEATURE_RESULT_NAME: "feature.results"
+      QUEUE_REVIEW_REQUEST_URI: "nats://nats:4222/feature.review.requests"
+      QUEUE_REVIEW_REQUEST_NAME: "feature.review.requests"
+      QUEUE_EXECUTION_REQUEST_URI: "nats://nats:4222/feature.execution.requests"
+      QUEUE_EXECUTION_REQUEST_NAME: "feature.execution.requests"
+      QUEUE_RETRY_L1_URI: "nats://nats:4222/feature.events.retry.1"
+      QUEUE_DLQ_URI: "nats://nats:4222/feature.events.dlq"
+      # Workspace
+      WORKSPACE_BASE_PATH: /var/lib/feature-service/workspaces
+      # LLM (optional - add your keys)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-anthropic}
+    volumes:
+      - workspaces:/var/lib/feature-service/workspaces
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    networks:
+      - feature-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+
+  # Reviewer - Security & architecture review
+  reviewer:
+    build:
+      context: .
+      dockerfile: apps/reviewer/Dockerfile
+    container_name: feature-reviewer
+    environment:
+      SERVICE_NAME: feature_reviewer
+      SERVER_ADDRESS: ":8080"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Queue configuration
+      QUEUE_REVIEW_REQUEST_URI: "nats://nats:4222/feature.review.requests"
+      QUEUE_REVIEW_REQUEST_NAME: "feature.review.requests"
+      QUEUE_REVIEW_RESULT_URI: "nats://nats:4222/feature.review.results"
+      QUEUE_REVIEW_RESULT_NAME: "feature.review.results"
+      QUEUE_CONTROL_EVENTS_URI: "nats://nats:4222/feature.control"
+      QUEUE_CONTROL_EVENTS_NAME: "feature.control"
+      # Review thresholds (conservative defaults)
+      MAX_RISK_SCORE: "50"
+      MAX_SECURITY_RISK_SCORE: "30"
+      MAX_CRITICAL_ISSUES: "0"
+      MAX_BREAKING_CHANGES: "0"
+      MAX_ITERATIONS: "3"
+      BLOCK_ON_SECRETS: "true"
+    depends_on:
+      nats:
+        condition: service_started
+    networks:
+      - feature-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+  # Executor - Sandbox test execution
+  executor:
+    build:
+      context: .
+      dockerfile: apps/executor/Dockerfile
+    container_name: feature-executor
+    environment:
+      SERVICE_NAME: feature_executor
+      SERVER_ADDRESS: ":8080"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Queue configuration
+      QUEUE_EXECUTION_REQUEST_URI: "nats://nats:4222/feature.execution.requests"
+      QUEUE_EXECUTION_REQUEST_NAME: "feature.execution.requests"
+      QUEUE_EXECUTION_RESULT_URI: "nats://nats:4222/feature.execution.results"
+      QUEUE_EXECUTION_RESULT_NAME: "feature.execution.results"
+      # Sandbox configuration
+      SANDBOX_ENABLED: "true"
+      SANDBOX_TYPE: "docker"
+      SANDBOX_MEMORY_LIMIT_MB: "2048"
+      SANDBOX_CPU_LIMIT: "1.0"
+      SANDBOX_NETWORK_ENABLED: "false"
+      SANDBOX_TIMEOUT_SECONDS: "300"
+      MAX_CONCURRENT_EXECUTIONS: "5"
+      # Workspace
+      WORKSPACE_BASE_PATH: /var/lib/feature-service/workspaces
+    volumes:
+      - workspaces:/var/lib/feature-service/workspaces
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      nats:
+        condition: service_started
+    networks:
+      - feature-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '2.0'
+
+  # ===========================================================================
+  # Infrastructure Services
+  # ===========================================================================
+
+  # PostgreSQL - Primary database
+  postgres:
+    image: postgres:16-alpine
+    container_name: feature-postgres
+    environment:
+      POSTGRES_USER: feature
+      POSTGRES_PASSWORD: feature
+      POSTGRES_DB: feature
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - feature-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feature -d feature"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # NATS - Message queue
+  nats:
+    image: nats:2.10-alpine
+    container_name: feature-nats
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    volumes:
+      - nats-data:/data
+    networks:
+      - feature-network
+    restart: unless-stopped
+
+  # Redis - Caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: feature-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - feature-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    profiles:
+      - full
+
+  # ===========================================================================
+  # Observability Stack (optional - use profiles)
+  # ===========================================================================
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: feature-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+    networks:
+      - feature-network
+    restart: unless-stopped
+    profiles:
+      - observability
+      - full
+
+  prometheus:
+    image: prom/prometheus:v2.49.1
+    container_name: feature-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - feature-network
+    restart: unless-stopped
+    profiles:
+      - observability
+      - full
+
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: feature-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    networks:
+      - feature-network
+    restart: unless-stopped
+    profiles:
+      - observability
+      - full
+
+# ===========================================================================
+# Networks
+# ===========================================================================
+networks:
+  feature-network:
+    driver: bridge
+    name: feature-network
+
+# ===========================================================================
+# Volumes
+# ===========================================================================
+volumes:
+  postgres-data:
+    name: feature-postgres-data
+  nats-data:
+    name: feature-nats-data
+  redis-data:
+    name: feature-redis-data
+  prometheus-data:
+    name: feature-prometheus-data
+  grafana-data:
+    name: feature-grafana-data
+  workspaces:
+    name: feature-workspaces

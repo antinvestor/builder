@@ -1,0 +1,35 @@
+# =============================================================================
+# Grafana Datasources Configuration
+# =============================================================================
+apiVersion: 1
+
+datasources:
+  # Prometheus - Metrics
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+
+  # Jaeger - Traces
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    editable: false
+
+  # PostgreSQL - Database
+  - name: PostgreSQL
+    type: postgres
+    url: postgres:5432
+    database: feature
+    user: feature
+    secureJsonData:
+      password: feature
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    editable: false

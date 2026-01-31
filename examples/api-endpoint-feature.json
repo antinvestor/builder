@@ -1,0 +1,38 @@
+{
+  "execution_id": "demo000000002",
+  "repository_url": "https://github.com/example/api-service.git",
+  "branch": "develop",
+  "specification": {
+    "title": "Add user profile endpoint",
+    "description": "Create a REST API endpoint for fetching and updating user profiles",
+    "requirements": [
+      "GET /api/v1/users/:id - Fetch user profile",
+      "PUT /api/v1/users/:id - Update user profile",
+      "Return 404 for non-existent users",
+      "Validate input fields (email format, name length)",
+      "Add authentication middleware",
+      "Include OpenAPI documentation"
+    ],
+    "target_files": [
+      "handlers/user.go",
+      "routes/api.go",
+      "models/user.go"
+    ],
+    "language": "go",
+    "framework": "gin"
+  },
+  "context": {
+    "iteration_number": 0,
+    "max_iterations": 5
+  },
+  "constraints": {
+    "must_have_tests": true,
+    "minimum_coverage": 80,
+    "no_breaking_changes": true
+  },
+  "metadata": {
+    "requested_by": "product-team",
+    "jira_ticket": "PROJ-1234",
+    "priority": "high"
+  }
+}

@@ -1,0 +1,16 @@
+# =============================================================================
+# Grafana Dashboards Provisioning
+# =============================================================================
+apiVersion: 1
+
+providers:
+  - name: 'default'
+    orgId: 1
+    folder: 'Service Feature'
+    folderUid: 'service-feature'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

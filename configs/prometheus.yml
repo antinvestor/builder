@@ -1,0 +1,33 @@
+# =============================================================================
+# Prometheus Configuration
+# =============================================================================
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# =============================================================================
+# Scrape Configurations
+# =============================================================================
+scrape_configs:
+  # Service Feature metrics
+  - job_name: 'service-feature'
+    static_configs:
+      - targets: ['service-feature:8080']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # NATS metrics
+  - job_name: 'nats'
+    static_configs:
+      - targets: ['nats:8222']
+    metrics_path: /metrics
+
+  # Redis metrics (if redis_exporter is added)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+
+  # PostgreSQL metrics (if postgres_exporter is added)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']

@@ -1,0 +1,25 @@
+# =============================================================================
+# Demo Container - For testing the feature service pipeline
+# =============================================================================
+FROM golang:1.22-alpine
+
+# Install tools
+RUN apk add --no-cache \
+    curl \
+    jq \
+    git \
+    bash
+
+# Install NATS CLI
+RUN go install github.com/nats-io/natscli/nats@latest
+
+# Copy demo scripts
+COPY scripts/demo.sh /usr/local/bin/demo
+COPY examples /examples
+
+RUN chmod +x /usr/local/bin/demo
+
+WORKDIR /examples
+
+# Default to keeping container running
+CMD ["sleep", "infinity"]
