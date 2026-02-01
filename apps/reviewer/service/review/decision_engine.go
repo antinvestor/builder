@@ -56,7 +56,7 @@ func (e *ThresholdDecisionEngine) MakeDecision(ctx context.Context, req *Decisio
 	result.BlockingIssues = append(result.BlockingIssues, archIssues...)
 
 	// Evaluate test results
-	testPassing := e.evaluateTestResults(req, result)
+	testPassing := e.evaluateTestResults(req, thresholds, result)
 
 	// Calculate risk assessment
 	result.RiskAssessment = e.calculateRiskAssessment(req, thresholds)
@@ -245,7 +245,11 @@ func (e *ThresholdDecisionEngine) evaluateArchitectureAssessment(
 	return blockingIssues, hasBlocking
 }
 
-func (e *ThresholdDecisionEngine) evaluateTestResults(req *DecisionRequest, result *DecisionResult) bool {
+func (e *ThresholdDecisionEngine) evaluateTestResults(
+	req *DecisionRequest,
+	thresholds events.ReviewThresholds,
+	result *DecisionResult,
+) bool {
 	if req.TestResult == nil {
 		// No test results - consider passing (tests may not have been run yet)
 		return true
@@ -262,7 +266,6 @@ func (e *ThresholdDecisionEngine) evaluateTestResults(req *DecisionRequest, resu
 	}
 
 	// Check coverage threshold if configured
-	thresholds := e.getThresholds(req)
 	if thresholds.MinTestCoverage > 0 && testResult.Coverage < thresholds.MinTestCoverage {
 		result.Warnings = append(result.Warnings,
 			fmt.Sprintf("Test coverage (%.1f%%) below threshold (%.1f%%)",
@@ -323,6 +326,8 @@ func (e *ThresholdDecisionEngine) calculateRiskAssessment(
 			if bcRisk > 100 {
 				bcRisk = 100
 			}
+			totalScore += bcRisk
+			factorCount++
 			ra.RiskFactors = append(ra.RiskFactors, events.RiskFactor{
 				Category:     events.RiskCategoryBreakingChange,
 				Factor:       fmt.Sprintf("%d breaking changes", len(req.ArchitectureAssessment.BreakingChanges)),
