@@ -1,13 +1,15 @@
+//nolint:testpackage // white-box testing requires internal package access
 package review
 
 import (
 	"context"
 	"testing"
 
-	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
-	"github.com/antinvestor/builder/internal/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
+	"github.com/antinvestor/builder/internal/events"
 )
 
 func newTestDecisionEngine() *ThresholdDecisionEngine {
@@ -285,8 +287,8 @@ func TestThresholdDecisionEngine_TestsFailing_Iterate(t *testing.T) {
 
 func TestThresholdDecisionEngine_LowCoverage_Iterate(t *testing.T) {
 	cfg := &appconfig.ReviewerConfig{
-		MaxRiskScore:    50,
-		MaxIterations:   3,
+		MaxRiskScore:  50,
+		MaxIterations: 3,
 		ReviewThresholds: events.ReviewThresholds{
 			MaxRiskScore:      50,
 			MinTestCoverage:   70.0,

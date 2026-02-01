@@ -5,9 +5,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pitabwire/util"
+
 	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
 	"github.com/antinvestor/builder/internal/events"
-	"github.com/pitabwire/util"
+)
+
+// Score constants for risk calculation.
+const (
+	maxScore              = 100
+	breakingChangeRiskPer = 20
+	riskLevelCriticalMin  = 80
+	riskLevelHighMin      = 60
+	riskLevelMediumMin    = 30
 )
 
 // ThresholdDecisionEngine implements comprehensive threshold-based decision making.
@@ -171,7 +181,7 @@ func (e *ThresholdDecisionEngine) evaluateSecurityAssessment(
 	}
 
 	// Check security score against threshold
-	securityRiskScore := 100 - sec.OverallSecurityScore
+	securityRiskScore := maxScore - sec.OverallSecurityScore
 	if thresholds.MaxSecurityRiskScore > 0 && securityRiskScore > thresholds.MaxSecurityRiskScore {
 		hasBlocking = true
 		result.Warnings = append(result.Warnings,
@@ -222,7 +232,7 @@ func (e *ThresholdDecisionEngine) evaluateArchitectureAssessment(
 	}
 
 	// Check architecture score against threshold
-	archRiskScore := 100 - arch.OverallArchitectureScore
+	archRiskScore := maxScore - arch.OverallArchitectureScore
 	if thresholds.MaxArchitectureRiskScore > 0 && archRiskScore > thresholds.MaxArchitectureRiskScore {
 		hasBlocking = true
 		result.Warnings = append(result.Warnings,
@@ -291,7 +301,7 @@ func (e *ThresholdDecisionEngine) calculateRiskAssessment(
 
 	// Security risk
 	if req.SecurityAssessment != nil {
-		secRisk := 100 - req.SecurityAssessment.OverallSecurityScore
+		secRisk := maxScore - req.SecurityAssessment.OverallSecurityScore
 		ra.SecurityRiskScore = secRisk
 		totalScore += secRisk
 		factorCount++
@@ -307,7 +317,7 @@ func (e *ThresholdDecisionEngine) calculateRiskAssessment(
 
 	// Architecture risk
 	if req.ArchitectureAssessment != nil {
-		archRisk := 100 - req.ArchitectureAssessment.OverallArchitectureScore
+		archRisk := maxScore - req.ArchitectureAssessment.OverallArchitectureScore
 		ra.ArchitectureRiskScore = archRisk
 		totalScore += archRisk
 		factorCount++
@@ -322,9 +332,9 @@ func (e *ThresholdDecisionEngine) calculateRiskAssessment(
 
 		// Add breaking change risk
 		if len(req.ArchitectureAssessment.BreakingChanges) > 0 {
-			bcRisk := len(req.ArchitectureAssessment.BreakingChanges) * 20
-			if bcRisk > 100 {
-				bcRisk = 100
+			bcRisk := len(req.ArchitectureAssessment.BreakingChanges) * breakingChangeRiskPer
+			if bcRisk > maxScore {
+				bcRisk = maxScore
 			}
 			totalScore += bcRisk
 			factorCount++
@@ -339,19 +349,23 @@ func (e *ThresholdDecisionEngine) calculateRiskAssessment(
 	// Test coverage risk
 	if req.TestResult != nil {
 		if !req.TestResult.Success {
-			ra.TestRiskScore = 100
+			ra.TestRiskScore = maxScore
 			ra.RiskFactors = append(ra.RiskFactors, events.RiskFactor{
 				Category:     events.RiskCategoryTestCoverage,
 				Factor:       "Tests failing",
-				Contribution: 100,
+				Contribution: maxScore,
 			})
 		} else if thresholds.MinTestCoverage > 0 {
 			coverageGap := thresholds.MinTestCoverage - req.TestResult.Coverage
 			if coverageGap > 0 {
 				ra.TestRiskScore = int(coverageGap)
 				ra.RiskFactors = append(ra.RiskFactors, events.RiskFactor{
-					Category:     events.RiskCategoryTestCoverage,
-					Factor:       fmt.Sprintf("Coverage %.1f%% below target %.1f%%", req.TestResult.Coverage, thresholds.MinTestCoverage),
+					Category: events.RiskCategoryTestCoverage,
+					Factor: fmt.Sprintf(
+						"Coverage %.1f%% below target %.1f%%",
+						req.TestResult.Coverage,
+						thresholds.MinTestCoverage,
+					),
 					Contribution: int(coverageGap),
 				})
 			}
@@ -376,30 +390,34 @@ func (e *ThresholdDecisionEngine) calculateRiskAssessment(
 
 func (e *ThresholdDecisionEngine) calculateRiskLevel(score int) events.RiskLevel {
 	switch {
-	case score >= 80:
+	case score >= riskLevelCriticalMin:
 		return events.RiskLevelCritical
-	case score >= 60:
+	case score >= riskLevelHighMin:
 		return events.RiskLevelHigh
-	case score >= 30:
+	case score >= riskLevelMediumMin:
 		return events.RiskLevelMedium
 	default:
 		return events.RiskLevelLow
 	}
 }
 
-func (e *ThresholdDecisionEngine) countIssuesBySeverity(req *DecisionRequest) (critical, high int) {
+func (e *ThresholdDecisionEngine) countIssuesBySeverity(req *DecisionRequest) (int, int) {
+	var criticalCount, highCount int
+
 	// Count from security assessment
 	if req.SecurityAssessment != nil {
 		for _, v := range req.SecurityAssessment.VulnerabilitiesFound {
 			switch v.Severity {
 			case events.VulnerabilitySeverityCritical:
-				critical++
+				criticalCount++
 			case events.VulnerabilitySeverityHigh:
-				high++
+				highCount++
+			case events.VulnerabilitySeverityLow, events.VulnerabilitySeverityMedium:
+				// Lower severities don't affect critical/high counts
 			}
 		}
 		// Secrets are considered critical
-		critical += len(req.SecurityAssessment.SecretsDetected)
+		criticalCount += len(req.SecurityAssessment.SecretsDetected)
 	}
 
 	// Count from architecture assessment
@@ -407,18 +425,20 @@ func (e *ThresholdDecisionEngine) countIssuesBySeverity(req *DecisionRequest) (c
 		for _, bc := range req.ArchitectureAssessment.BreakingChanges {
 			switch bc.Severity {
 			case events.ReviewIssueSeverityCritical:
-				critical++
+				criticalCount++
 			case events.ReviewIssueSeverityHigh:
-				high++
+				highCount++
+			case events.ReviewIssueSeverityInfo, events.ReviewIssueSeverityLow, events.ReviewIssueSeverityMedium:
+				// Lower severities don't affect critical/high counts
 			}
 		}
 	}
 
-	return critical, high
+	return criticalCount, highCount
 }
 
 func (e *ThresholdDecisionEngine) determineDecision(
-	req *DecisionRequest,
+	_ *DecisionRequest,
 	thresholds events.ReviewThresholds,
 	securityBlocking bool,
 	archBlocking bool,
@@ -431,7 +451,10 @@ func (e *ThresholdDecisionEngine) determineDecision(
 
 	// Critical issues - immediate abort
 	if criticalCount > thresholds.MaxCriticalIssues {
-		reasons = append(reasons, fmt.Sprintf("%d critical issues (max: %d)", criticalCount, thresholds.MaxCriticalIssues))
+		reasons = append(
+			reasons,
+			fmt.Sprintf("%d critical issues (max: %d)", criticalCount, thresholds.MaxCriticalIssues),
+		)
 		return events.ControlDecisionAbort,
 			fmt.Sprintf("Critical issues exceed threshold: %s", strings.Join(reasons, "; "))
 	}
@@ -482,7 +505,10 @@ func (e *ThresholdDecisionEngine) determineDecision(
 		fmt.Sprintf("Issues detected requiring iteration: %s", strings.Join(reasons, "; "))
 }
 
-func (e *ThresholdDecisionEngine) generateNextActions(result *DecisionResult, req *DecisionRequest) []events.ReviewNextAction {
+func (e *ThresholdDecisionEngine) generateNextActions(
+	result *DecisionResult,
+	req *DecisionRequest,
+) []events.ReviewNextAction {
 	var actions []events.ReviewNextAction
 
 	switch result.Decision {
@@ -525,6 +551,9 @@ func (e *ThresholdDecisionEngine) generateNextActions(result *DecisionResult, re
 			Details:  "Await human review before proceeding",
 			Priority: "immediate",
 		})
+
+	case events.ControlDecisionRollback, events.ControlDecisionMarkComplete:
+		// These are terminal decisions, no further actions needed
 	}
 
 	return actions
@@ -546,12 +575,15 @@ func (e *ThresholdDecisionEngine) generateIterationGuidance(
 	for _, issue := range result.BlockingIssues {
 		switch issue.Severity {
 		case events.ReviewIssueSeverityCritical:
-			guidance.MustFix = append(guidance.MustFix, fmt.Sprintf("[%s] %s: %s", issue.Severity, issue.FilePath, issue.Title))
+			guidance.MustFix = append(guidance.MustFix,
+				fmt.Sprintf("[%s] %s: %s", issue.Severity, issue.FilePath, issue.Title))
 			guidance.Priority = append(guidance.Priority, issue.ID)
 		case events.ReviewIssueSeverityHigh:
-			guidance.ShouldFix = append(guidance.ShouldFix, fmt.Sprintf("[%s] %s: %s", issue.Severity, issue.FilePath, issue.Title))
-		default:
-			guidance.MayIgnore = append(guidance.MayIgnore, fmt.Sprintf("[%s] %s: %s", issue.Severity, issue.FilePath, issue.Title))
+			guidance.ShouldFix = append(guidance.ShouldFix,
+				fmt.Sprintf("[%s] %s: %s", issue.Severity, issue.FilePath, issue.Title))
+		case events.ReviewIssueSeverityInfo, events.ReviewIssueSeverityLow, events.ReviewIssueSeverityMedium:
+			guidance.MayIgnore = append(guidance.MayIgnore,
+				fmt.Sprintf("[%s] %s: %s", issue.Severity, issue.FilePath, issue.Title))
 		}
 	}
 
@@ -577,7 +609,7 @@ func (e *ThresholdDecisionEngine) createAbortResult(
 	result.Decision = events.ControlDecisionAbort
 	result.Rationale = fmt.Sprintf("Abort: %s - %s", reason, details)
 	result.RiskAssessment = events.RiskAssessment{
-		OverallRiskScore:        100,
+		OverallRiskScore:        maxScore,
 		RiskLevel:               events.RiskLevelCritical,
 		AcceptableForProduction: false,
 	}
