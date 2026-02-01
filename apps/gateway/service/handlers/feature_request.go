@@ -24,6 +24,19 @@ const (
 	maxDescriptionLength = 10240 // 10KB
 )
 
+// Package-level validation maps (initialized once for efficiency).
+//
+//nolint:gochecknoglobals // These are effectively constant lookup tables for validation.
+var (
+	validCategories = map[string]bool{
+		"new_feature": true, "bug_fix": true, "refactor": true,
+		"documentation": true, "test": true, "dependency": true,
+	}
+	validPriorities = map[string]bool{
+		"low": true, "normal": true, "high": true, "critical": true,
+	}
+)
+
 // QueuePublisher defines the interface for publishing messages to a queue.
 type QueuePublisher interface {
 	Publish(ctx context.Context, queueName string, payload any, headers ...map[string]string) error
@@ -31,8 +44,9 @@ type QueuePublisher interface {
 
 // FeatureRequestHandler handles incoming feature requests.
 type FeatureRequestHandler struct {
-	cfg       *appconfig.GatewayConfig
-	publisher QueuePublisher
+	cfg          *appconfig.GatewayConfig
+	publisher    QueuePublisher
+	allowedHosts map[string]struct{}
 }
 
 // NewFeatureRequestHandler creates a new feature request handler.
@@ -40,9 +54,20 @@ func NewFeatureRequestHandler(
 	cfg *appconfig.GatewayConfig,
 	publisher QueuePublisher,
 ) *FeatureRequestHandler {
+	// Pre-parse allowed hosts for efficient lookup
+	hosts := strings.Split(cfg.AllowedRepositoryHosts, ",")
+	allowedMap := make(map[string]struct{}, len(hosts))
+	for _, h := range hosts {
+		normalizedHost := strings.ToLower(strings.TrimSpace(h))
+		if normalizedHost != "" {
+			allowedMap[normalizedHost] = struct{}{}
+		}
+	}
+
 	return &FeatureRequestHandler{
-		cfg:       cfg,
-		publisher: publisher,
+		cfg:          cfg,
+		publisher:    publisher,
+		allowedHosts: allowedMap,
 	}
 }
 
@@ -152,7 +177,7 @@ func (h *FeatureRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	// Only allow POST method
 	if r.Method != http.MethodPost {
-		h.writeErrorResponse(w, http.StatusMethodNotAllowed, "method_not_allowed",
+		h.writeErrorResponse(ctx, w, http.StatusMethodNotAllowed, "method_not_allowed",
 			"Only POST method is allowed", nil)
 		return
 	}
@@ -171,6 +196,7 @@ func (h *FeatureRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
 			h.writeErrorResponse(
+				ctx,
 				w,
 				http.StatusRequestEntityTooLarge,
 				"request_too_large",
@@ -182,7 +208,7 @@ func (h *FeatureRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			)
 			return
 		}
-		h.writeErrorResponse(w, http.StatusBadRequest, "invalid_request",
+		h.writeErrorResponse(ctx, w, http.StatusBadRequest, "invalid_request",
 			"Failed to read request body", nil)
 		return
 	}
@@ -191,6 +217,7 @@ func (h *FeatureRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	var request FeatureRequest
 	if unmarshalErr := json.Unmarshal(body, &request); unmarshalErr != nil {
 		h.writeErrorResponse(
+			ctx,
 			w,
 			http.StatusBadRequest,
 			"invalid_json",
@@ -202,7 +229,7 @@ func (h *FeatureRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	// Validate request
 	if validationErr := h.validateRequest(&request); validationErr != nil {
-		h.writeErrorResponse(w, http.StatusBadRequest, "validation_error",
+		h.writeErrorResponse(ctx, w, http.StatusBadRequest, "validation_error",
 			validationErr.Error(), map[string]string{"field": validationErr.Field})
 		return
 	}
@@ -233,7 +260,7 @@ func (h *FeatureRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			"execution_id", executionID,
 			"repository_url", request.RepositoryURL,
 		)
-		h.writeErrorResponse(w, http.StatusInternalServerError, "queue_error",
+		h.writeErrorResponse(ctx, w, http.StatusInternalServerError, "queue_error",
 			"Failed to queue feature request for processing", nil)
 		return
 	}
@@ -247,7 +274,7 @@ func (h *FeatureRequestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	)
 
 	// Return success response
-	h.writeSuccessResponse(w, http.StatusAccepted, FeatureResponse{
+	h.writeSuccessResponse(ctx, w, http.StatusAccepted, FeatureResponse{
 		Status:      "accepted",
 		ExecutionID: executionID,
 		Message:     "Feature request queued for processing",
@@ -347,10 +374,6 @@ func validateCategory(category string) *ValidationError {
 		return nil
 	}
 
-	validCategories := map[string]bool{
-		"new_feature": true, "bug_fix": true, "refactor": true,
-		"documentation": true, "test": true, "dependency": true,
-	}
 	if !validCategories[category] {
 		return &ValidationError{
 			Field:   "specification.category",
@@ -367,9 +390,6 @@ func validatePriority(priority string) *ValidationError {
 		return nil
 	}
 
-	validPriorities := map[string]bool{
-		"low": true, "normal": true, "high": true, "critical": true,
-	}
 	if !validPriorities[priority] {
 		return &ValidationError{
 			Field:   "priority",
@@ -410,29 +430,27 @@ func validateConstraints(constraints *ExecutionConstraints) *ValidationError {
 
 // isAllowedHost checks if the host is in the allowed hosts list.
 func (h *FeatureRequestHandler) isAllowedHost(host string) bool {
-	allowedHosts := strings.Split(h.cfg.AllowedRepositoryHosts, ",")
-	for _, allowed := range allowedHosts {
-		allowed = strings.TrimSpace(allowed)
-		if strings.EqualFold(host, allowed) {
-			return true
-		}
-	}
-	return false
+	_, ok := h.allowedHosts[strings.ToLower(host)]
+	return ok
 }
 
 // writeSuccessResponse writes a success JSON response.
 func (h *FeatureRequestHandler) writeSuccessResponse(
+	ctx context.Context,
 	w http.ResponseWriter,
 	statusCode int,
 	response FeatureResponse,
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(response)
+	if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
+		util.Log(ctx).WithError(encodeErr).Error("failed to encode success response")
+	}
 }
 
 // writeErrorResponse writes an error JSON response.
 func (h *FeatureRequestHandler) writeErrorResponse(
+	ctx context.Context,
 	w http.ResponseWriter,
 	statusCode int,
 	errorCode, message string,
@@ -440,9 +458,14 @@ func (h *FeatureRequestHandler) writeErrorResponse(
 ) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(ErrorResponse{
+	if encodeErr := json.NewEncoder(w).Encode(ErrorResponse{
 		Error:   errorCode,
 		Message: message,
 		Details: details,
-	})
+	}); encodeErr != nil {
+		util.Log(ctx).WithError(encodeErr).Error("failed to encode error response",
+			"original_error", errorCode,
+			"original_message", message,
+		)
+	}
 }
