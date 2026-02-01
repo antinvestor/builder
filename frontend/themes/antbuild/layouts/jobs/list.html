@@ -1,0 +1,129 @@
+{{ define "main" }}
+
+<div class="page-header">
+  <div class="container">
+    <h1>Join Our Team</h1>
+    <p>Help us build the future of AI-powered software development</p>
+  </div>
+</div>
+
+<section class="jobs-section">
+  <div class="container">
+
+    <!-- Company Info -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 3rem;">
+      <div style="padding: 2rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem;">
+        <h3 style="margin-bottom: 1rem;">Why ant.build?</h3>
+        <ul style="list-style: none; color: var(--text-secondary);">
+          <li style="display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <span style="color: var(--accent-green);">✓</span>
+            Remote-first company with flexible hours
+          </li>
+          <li style="display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <span style="color: var(--accent-green);">✓</span>
+            Competitive salary + equity
+          </li>
+          <li style="display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <span style="color: var(--accent-green);">✓</span>
+            Latest hardware and tools
+          </li>
+          <li style="display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <span style="color: var(--accent-green);">✓</span>
+            Learning & development budget
+          </li>
+          <li style="display: flex; align-items: flex-start; gap: 0.75rem;">
+            <span style="color: var(--accent-green);">✓</span>
+            Work on cutting-edge AI technology
+          </li>
+        </ul>
+      </div>
+      <div style="padding: 2rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem;">
+        <h3 style="margin-bottom: 1rem;">Our Stack</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+          <span class="job-tag" style="background: var(--primary); color: white;">Go</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">TypeScript</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">Python</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">PostgreSQL</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">Kubernetes</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">NATS</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">gRPC</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">Claude AI</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">BAML</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">Terraform</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">Hugo</span>
+          <span class="job-tag" style="background: var(--primary); color: white;">React</span>
+        </div>
+        <p style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.9375rem;">
+          We use modern, production-grade tools and aren't afraid to build our own when needed.
+        </p>
+      </div>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="jobs-filter">
+      <div class="filter-group" style="flex: 2;">
+        <label for="job-search">Search</label>
+        <input type="text" id="job-search" placeholder="Search by title, skills, or keywords...">
+      </div>
+      <div class="filter-group">
+        <label for="department-filter">Department</label>
+        <select id="department-filter">
+          <option value="">All Departments</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="type-filter">Type</label>
+        <select id="type-filter">
+          <option value="">All Types</option>
+          <option value="Full-time">Full-time</option>
+          <option value="Part-time">Part-time</option>
+          <option value="Contract">Contract</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="location-filter">Location</label>
+        <select id="location-filter">
+          <option value="">All Locations</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Results Count -->
+    <p id="jobs-count" style="margin-bottom: 1.5rem; color: var(--text-muted);"></p>
+
+    <!-- Jobs List -->
+    <div class="jobs-list" id="jobs-list">
+      <!-- Jobs will be rendered by JavaScript -->
+    </div>
+
+    <!-- No jobs state is handled in JS -->
+
+  </div>
+</section>
+
+<!-- CTA -->
+<section style="padding: var(--section-padding) 0; text-align: center; background: var(--gradient-card);">
+  <div class="container">
+    <h2 style="margin-bottom: 1rem;">Don't see a perfect fit?</h2>
+    <p style="max-width: 600px; margin: 0 auto 2rem;">
+      We're always looking for talented people. Send us your resume and tell us how you'd like to contribute.
+    </p>
+    <a href="mailto:careers@ant.build" class="btn btn-primary btn-lg">Send Open Application</a>
+  </div>
+</section>
+
+{{ end }}
+
+{{ define "scripts" }}
+<script src="/js/jobs.js"></script>
+<style>
+  @media (max-width: 768px) {
+    .jobs-filter {
+      flex-direction: column;
+    }
+    .filter-group {
+      min-width: 100%;
+    }
+  }
+</style>
+{{ end }}

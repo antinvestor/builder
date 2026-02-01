@@ -1,0 +1,65 @@
+baseURL = 'https://ant.build/'
+languageCode = 'en-us'
+title = 'ant.build - AI-Powered Code Generation Platform'
+theme = 'antbuild'
+
+[params]
+  description = "Build software with AI. Code generation is FREE. Pay only for hosting and domains."
+  tagline = "From Prompt to Production"
+  email = "hello@ant.build"
+  github = "https://github.com/antinvestor"
+
+  # Gateway API endpoint
+  gatewayURL = "https://api.ant.build"
+
+  # Feature flags
+  enablePromptBuilder = true
+  enableJobs = true
+  enableBlog = true
+
+[menu]
+  [[menu.main]]
+    name = "Features"
+    url = "/features/"
+    weight = 1
+  [[menu.main]]
+    name = "Pricing"
+    url = "/pricing/"
+    weight = 2
+  [[menu.main]]
+    name = "Jobs"
+    url = "/jobs/"
+    weight = 3
+  [[menu.main]]
+    name = "Blog"
+    url = "/blog/"
+    weight = 4
+  [[menu.main]]
+    name = "Docs"
+    url = "/docs/"
+    weight = 5
+
+[markup]
+  [markup.highlight]
+    codeFences = true
+    lineNos = true
+    style = "dracula"
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+
+[taxonomies]
+  tag = "tags"
+  category = "categories"
+
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+  section = ["HTML", "RSS"]
+
+[sitemap]
+  changefreq = "weekly"
+  priority = 0.5
+
+[security]
+  [security.funcs]
+    getenv = ["^HUGO_", "^GATEWAY_"]

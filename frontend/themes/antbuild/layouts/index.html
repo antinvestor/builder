@@ -1,0 +1,186 @@
+{{ define "main" }}
+
+{{ partial "hero.html" . }}
+
+<!-- How It Works -->
+<section class="how-it-works">
+  <div class="container">
+    <div class="section-header">
+      <h2>How It Works</h2>
+      <p>From idea to production in minutes, not months</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-number">1</div>
+        <h3>Describe Your Project</h3>
+        <p>Tell us what you want to build in plain English. Our AI understands complex requirements.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <h3>AI Generates Code</h3>
+        <p>Our multi-LLM pipeline generates production-ready code with tests and documentation.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <h3>Review & Iterate</h3>
+        <p>Preview your code, request changes, and iterate until it's perfect. All free.</p>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <h3>Deploy & Scale</h3>
+        <p>When you're ready, provision hosting and deploy with one click. Pay only for what you use.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features Preview -->
+<section class="features">
+  <div class="container">
+    <div class="section-header">
+      <h2>Built for Serious Developers</h2>
+      <p>Enterprise-grade infrastructure, developer-friendly experience</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <h3>Multi-LLM Intelligence</h3>
+        <p>Powered by Claude, GPT-4, and Gemini with automatic failover. Always get the best results.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Enterprise Security</h3>
+        <p>Sandboxed execution, mTLS, Vault integration, and SOC2-ready infrastructure.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧪</div>
+        <h3>Automatic Testing</h3>
+        <p>Every generated feature includes unit tests, integration tests, and security review.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔄</div>
+        <h3>Git Integration</h3>
+        <p>Works with GitHub, GitLab, Bitbucket. Automatic commits, branches, and PRs.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Real-time Progress</h3>
+        <p>Watch your code being generated step-by-step with live logs and previews.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <h3>Any Language</h3>
+        <p>Go, TypeScript, Python, Rust, Java, and more. We adapt to your stack.</p>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 3rem;">
+      <a href="/features/" class="btn btn-secondary btn-lg">Explore All Features</a>
+    </div>
+  </div>
+</section>
+
+<!-- Stats -->
+<section class="stats">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-item">
+        <h3>100K+</h3>
+        <p>Features Generated</p>
+      </div>
+      <div class="stat-item">
+        <h3>50K+</h3>
+        <p>Developers</p>
+      </div>
+      <div class="stat-item">
+        <h3>99.9%</h3>
+        <p>Uptime SLA</p>
+      </div>
+      <div class="stat-item">
+        <h3>$0</h3>
+        <p>Code Generation Cost</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Pricing Preview -->
+<section class="pricing">
+  <div class="container">
+    <div class="section-header">
+      <h2>Simple, Transparent Pricing</h2>
+      <p>Code generation is always free. Pay only when you deploy.</p>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="pricing-header">
+          <div class="pricing-name">Free Forever</div>
+          <div class="pricing-price">$0<span>/month</span></div>
+          <div class="pricing-description">Code generation & development</div>
+        </div>
+        <ul class="pricing-features">
+          <li>Unlimited code generation</li>
+          <li>All programming languages</li>
+          <li>Git repository integration</li>
+          <li>Automatic testing</li>
+          <li>Security review</li>
+          <li>Community support</li>
+        </ul>
+        <a href="#prompt-builder" class="btn btn-secondary pricing-cta">Start Building Free</a>
+      </div>
+
+      <div class="pricing-card featured">
+        <div class="pricing-header">
+          <div class="pricing-name">Starter Hosting</div>
+          <div class="pricing-price">$9<span>/month</span></div>
+          <div class="pricing-description">Perfect for side projects</div>
+        </div>
+        <ul class="pricing-features">
+          <li>Everything in Free</li>
+          <li>1 deployed application</li>
+          <li>Custom domain included</li>
+          <li>SSL certificate</li>
+          <li>1GB storage</li>
+          <li>Email support</li>
+        </ul>
+        <a href="/pricing/" class="btn btn-primary pricing-cta">Get Started</a>
+      </div>
+
+      <div class="pricing-card">
+        <div class="pricing-header">
+          <div class="pricing-name">Pro Hosting</div>
+          <div class="pricing-price">$49<span>/month</span></div>
+          <div class="pricing-description">For growing businesses</div>
+        </div>
+        <ul class="pricing-features">
+          <li>Everything in Starter</li>
+          <li>10 deployed applications</li>
+          <li>10 custom domains</li>
+          <li>50GB storage</li>
+          <li>Auto-scaling</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="/pricing/" class="btn btn-secondary pricing-cta">View Plans</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section style="padding: var(--section-padding) 0; text-align: center;">
+  <div class="container">
+    <h2 style="margin-bottom: 1rem;">Ready to Build Something Amazing?</h2>
+    <p style="max-width: 600px; margin: 0 auto 2rem; font-size: 1.125rem;">
+      Join thousands of developers building with AI. No credit card required.
+    </p>
+    <a href="#prompt-builder" class="btn btn-primary btn-lg">
+      Start Building Free
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+  </div>
+</section>
+
+{{ end }}

@@ -1,0 +1,13 @@
+# Theme metadata
+name = "antbuild"
+license = "MIT"
+licenselink = "https://github.com/antinvestor/ant.build/blob/main/LICENSE"
+description = "Modern theme for ant.build AI code generation platform"
+homepage = "https://ant.build"
+tags = ["ai", "code-generation", "saas", "modern", "responsive"]
+features = ["blog", "jobs", "pricing", "dark-mode"]
+min_version = "0.100.0"
+
+[author]
+  name = "Antinvestor"
+  homepage = "https://github.com/antinvestor"

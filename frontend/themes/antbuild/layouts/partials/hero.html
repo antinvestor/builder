@@ -1,0 +1,49 @@
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="hero-badge-icon">✨</span>
+        <span>AI-Powered Development Platform</span>
+      </div>
+
+      <h1>
+        Build Software with AI.<br>
+        <span class="gradient-text">Code Generation is FREE.</span>
+      </h1>
+
+      <p class="hero-description">
+        Describe what you want to build, and our AI generates production-ready code.
+        Pay only when you're ready to deploy. No upfront costs, no subscriptions for code generation.
+      </p>
+
+      <div class="hero-cta">
+        <a href="#prompt-builder" class="btn btn-primary btn-lg">
+          Start Building Free
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+        <a href="/features/" class="btn btn-secondary btn-lg">
+          See How It Works
+        </a>
+      </div>
+
+      <div style="display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;">
+        <div class="free-badge">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Free Code Generation
+        </div>
+        <div class="free-badge">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          No Credit Card Required
+        </div>
+        <div class="free-badge">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Unlimited Projects
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      {{ partial "prompt-builder.html" . }}
+    </div>
+  </div>
+</section>

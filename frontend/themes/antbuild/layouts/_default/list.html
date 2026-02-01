@@ -1,0 +1,53 @@
+{{ define "main" }}
+
+<div class="page-header">
+  <div class="container">
+    <h1>{{ .Title }}</h1>
+    {{ with .Description }}
+    <p>{{ . }}</p>
+    {{ end }}
+  </div>
+</div>
+
+<section style="padding: var(--section-padding) 0;">
+  <div class="container">
+    {{ if eq .Section "blog" }}
+    <div class="blog-grid">
+      {{ range .Pages }}
+      <article class="blog-card">
+        <div class="blog-card-image">
+          {{ if .Params.icon }}{{ .Params.icon }}{{ else }}📝{{ end }}
+        </div>
+        <div class="blog-card-content">
+          <div class="blog-card-meta">
+            <span>{{ .Date.Format "Jan 2, 2006" }}</span>
+            {{ with .Params.category }}<span>{{ . }}</span>{{ end }}
+          </div>
+          <h3><a href="{{ .Permalink }}">{{ .Title }}</a></h3>
+          <p>{{ .Summary | truncate 150 }}</p>
+        </div>
+      </article>
+      {{ end }}
+    </div>
+    {{ else }}
+    <div class="content">
+      {{ .Content }}
+    </div>
+
+    {{ if .Pages }}
+    <ul style="list-style: none; margin-top: 2rem;">
+      {{ range .Pages }}
+      <li style="margin-bottom: 1rem;">
+        <a href="{{ .Permalink }}" style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem; transition: all 0.2s;">
+          <span style="font-size: 1.125rem; font-weight: 600; color: var(--text-primary);">{{ .Title }}</span>
+          <span style="color: var(--text-muted); font-size: 0.875rem;">{{ .Date.Format "Jan 2, 2006" }}</span>
+        </a>
+      </li>
+      {{ end }}
+    </ul>
+    {{ end }}
+    {{ end }}
+  </div>
+</section>
+
+{{ end }}

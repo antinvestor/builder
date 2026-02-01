@@ -1,0 +1,27 @@
+<header class="header">
+  <div class="container">
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <span class="logo-icon">🐜</span>
+        <span>ant.build</span>
+      </a>
+
+      <nav class="nav" id="main-nav">
+        <ul class="nav-links">
+          {{ range .Site.Menus.main }}
+            <li><a href="{{ .URL }}">{{ .Name }}</a></li>
+          {{ end }}
+        </ul>
+
+        <div class="nav-cta">
+          <a href="/build/" class="btn btn-secondary btn-sm">Start Building</a>
+          <a href="/login/" class="btn btn-primary btn-sm">Sign In</a>
+        </div>
+      </nav>
+
+      <button class="menu-toggle" onclick="toggleMenu()" aria-label="Toggle menu">
+        ☰
+      </button>
+    </div>
+  </div>
+</header>

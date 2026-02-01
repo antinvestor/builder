@@ -1,0 +1,347 @@
+{{ define "main" }}
+
+<div class="page-header">
+  <div class="container">
+    <h1>Deploy Your Project</h1>
+    <p>Choose your hosting infrastructure and go live in minutes</p>
+  </div>
+</div>
+
+<section class="provision-section">
+  <div class="container">
+
+    <!-- Project Info -->
+    <div id="project-info" style="margin-bottom: 3rem; padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 1rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h3 id="project-title" style="margin-bottom: 0.25rem;">Your Project</h3>
+          <p id="project-desc" style="color: var(--text-muted); font-size: 0.875rem;">Ready to deploy</p>
+        </div>
+        <div class="free-badge">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Code Generated
+        </div>
+      </div>
+    </div>
+
+    <h2 style="margin-bottom: 2rem;">Select Your Infrastructure</h2>
+
+    <div class="provision-grid" id="provision-grid">
+      <!-- Starter -->
+      <div class="provision-card" data-plan="starter" onclick="selectPlan('starter')">
+        <div class="provision-header">
+          <div class="provision-name">Starter</div>
+          <div class="provision-price">$9<span>/mo</span></div>
+        </div>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9375rem;">Perfect for MVPs and side projects</p>
+        <div class="provision-specs">
+          <div class="spec-item">
+            <div class="spec-value">1</div>
+            <div class="spec-label">vCPU</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">512MB</div>
+            <div class="spec-label">RAM</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">1GB</div>
+            <div class="spec-label">Storage</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">10GB</div>
+            <div class="spec-label">Bandwidth</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Growth -->
+      <div class="provision-card" data-plan="growth" onclick="selectPlan('growth')">
+        <div class="provision-header">
+          <div class="provision-name">Growth</div>
+          <div class="provision-price">$29<span>/mo</span></div>
+        </div>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9375rem;">For apps with real users</p>
+        <div class="provision-specs">
+          <div class="spec-item">
+            <div class="spec-value">2</div>
+            <div class="spec-label">vCPU</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">2GB</div>
+            <div class="spec-label">RAM</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">10GB</div>
+            <div class="spec-label">Storage</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">50GB</div>
+            <div class="spec-label">Bandwidth</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pro -->
+      <div class="provision-card selected" data-plan="pro" onclick="selectPlan('pro')">
+        <div class="provision-header">
+          <div class="provision-name">Pro <span style="font-size: 0.75rem; color: var(--primary);">RECOMMENDED</span></div>
+          <div class="provision-price">$49<span>/mo</span></div>
+        </div>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9375rem;">Production-ready with auto-scaling</p>
+        <div class="provision-specs">
+          <div class="spec-item">
+            <div class="spec-value">4</div>
+            <div class="spec-label">vCPU</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">8GB</div>
+            <div class="spec-label">RAM</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">50GB</div>
+            <div class="spec-label">Storage</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">100GB</div>
+            <div class="spec-label">Bandwidth</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scale -->
+      <div class="provision-card" data-plan="scale" onclick="selectPlan('scale')">
+        <div class="provision-header">
+          <div class="provision-name">Scale</div>
+          <div class="provision-price">$149<span>/mo</span></div>
+        </div>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9375rem;">High-traffic applications</p>
+        <div class="provision-specs">
+          <div class="spec-item">
+            <div class="spec-value">8</div>
+            <div class="spec-label">vCPU</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">16GB</div>
+            <div class="spec-label">RAM</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">200GB</div>
+            <div class="spec-label">Storage</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-value">500GB</div>
+            <div class="spec-label">Bandwidth</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Domain Selection -->
+    <div style="margin-top: 4rem;">
+      <h2 style="margin-bottom: 2rem;">Choose Your Domain</h2>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 800px;">
+        <!-- Free subdomain -->
+        <div class="provision-card selected" data-domain="subdomain" onclick="selectDomain('subdomain')" style="cursor: pointer;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <h4 style="margin-bottom: 0.25rem;">Free Subdomain</h4>
+              <p style="color: var(--text-muted); font-size: 0.875rem;">yourproject.ant.build</p>
+            </div>
+            <div class="free-badge">FREE</div>
+          </div>
+        </div>
+
+        <!-- Custom domain -->
+        <div class="provision-card" data-domain="custom" onclick="selectDomain('custom')" style="cursor: pointer;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <h4 style="margin-bottom: 0.25rem;">Custom Domain</h4>
+              <p style="color: var(--text-muted); font-size: 0.875rem;">yourproject.com</p>
+            </div>
+            <div style="color: var(--accent-green); font-weight: 600;">from $12/yr</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Domain search (hidden by default) -->
+      <div id="domain-search" style="display: none; margin-top: 1.5rem; max-width: 800px;">
+        <div style="display: flex; gap: 1rem;">
+          <input type="text" id="domain-input" placeholder="Enter your desired domain name" style="flex: 1; padding: 0.875rem 1rem; background: var(--bg-input); border: 1px solid var(--border); border-radius: 0.5rem; color: var(--text-primary); font-size: 1rem;">
+          <button class="btn btn-secondary" onclick="searchDomain()">Check Availability</button>
+        </div>
+        <div id="domain-results" style="margin-top: 1rem;"></div>
+      </div>
+    </div>
+
+    <!-- Summary & Deploy -->
+    <div style="margin-top: 4rem; padding: 2rem; background: var(--bg-card); border: 1px solid var(--primary); border-radius: 1rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+      <h3 style="margin-bottom: 1.5rem; text-align: center;">Deployment Summary</h3>
+
+      <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+        <span style="color: var(--text-secondary);">Infrastructure</span>
+        <span id="summary-plan" style="font-weight: 600;">Pro - $49/mo</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+        <span style="color: var(--text-secondary);">Domain</span>
+        <span id="summary-domain" style="font-weight: 600;">Free subdomain</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+        <span style="color: var(--text-secondary);">Code Generation</span>
+        <span style="font-weight: 600; color: var(--accent-green);">FREE</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 1rem 0; font-size: 1.25rem;">
+        <span style="font-weight: 700;">Total</span>
+        <span id="summary-total" style="font-weight: 700; color: var(--accent-green);">$49/mo</span>
+      </div>
+
+      <button class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1rem;" onclick="deploy()">
+        Deploy Now
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </button>
+
+      <p style="text-align: center; margin-top: 1rem; font-size: 0.875rem; color: var(--text-muted);">
+        30-day money-back guarantee. Cancel anytime.
+      </p>
+    </div>
+
+  </div>
+</section>
+
+{{ end }}
+
+{{ define "scripts" }}
+<script>
+  // Pricing data
+  const plans = {
+    starter: { name: 'Starter', price: 9 },
+    growth: { name: 'Growth', price: 29 },
+    pro: { name: 'Pro', price: 49 },
+    scale: { name: 'Scale', price: 149 }
+  };
+
+  let selectedPlan = 'pro';
+  let selectedDomain = 'subdomain';
+  let domainPrice = 0;
+
+  // Get project ID from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const projectId = urlParams.get('project');
+
+  if (projectId) {
+    document.getElementById('project-title').textContent = 'Project: ' + projectId.substring(0, 20);
+  }
+
+  function selectPlan(plan) {
+    selectedPlan = plan;
+
+    // Update UI
+    document.querySelectorAll('.provision-card[data-plan]').forEach(card => {
+      card.classList.toggle('selected', card.dataset.plan === plan);
+    });
+
+    updateSummary();
+  }
+
+  function selectDomain(type) {
+    selectedDomain = type;
+
+    // Update UI
+    document.querySelectorAll('.provision-card[data-domain]').forEach(card => {
+      card.classList.toggle('selected', card.dataset.domain === type);
+    });
+
+    // Show/hide domain search
+    document.getElementById('domain-search').style.display = type === 'custom' ? 'block' : 'none';
+
+    if (type === 'subdomain') {
+      domainPrice = 0;
+    }
+
+    updateSummary();
+  }
+
+  function searchDomain() {
+    const domain = document.getElementById('domain-input').value.trim();
+    if (!domain) {
+      showToast('Please enter a domain name', 'error');
+      return;
+    }
+
+    const resultsDiv = document.getElementById('domain-results');
+    resultsDiv.innerHTML = '<p style="color: var(--text-muted);">Checking availability...</p>';
+
+    // Simulate domain search
+    setTimeout(() => {
+      const extensions = [
+        { ext: '.com', price: 12, available: Math.random() > 0.3 },
+        { ext: '.io', price: 39, available: true },
+        { ext: '.dev', price: 15, available: true },
+        { ext: '.app', price: 18, available: true }
+      ];
+
+      resultsDiv.innerHTML = extensions.map(ext => `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background: var(--bg-input); border-radius: 0.5rem; margin-bottom: 0.5rem; ${!ext.available ? 'opacity: 0.5;' : ''}">
+          <div>
+            <span style="font-weight: 600;">${domain}${ext.ext}</span>
+            ${ext.available ?
+              '<span style="color: var(--accent-green); margin-left: 0.5rem; font-size: 0.75rem;">Available</span>' :
+              '<span style="color: #ef4444; margin-left: 0.5rem; font-size: 0.75rem;">Taken</span>'
+            }
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span style="color: var(--text-secondary);">$${ext.price}/yr</span>
+            ${ext.available ? `<button class="btn btn-sm btn-secondary" onclick="selectCustomDomain('${domain}${ext.ext}', ${ext.price})">Select</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }, 800);
+  }
+
+  function selectCustomDomain(domain, price) {
+    domainPrice = price;
+    document.getElementById('summary-domain').textContent = domain + ' - $' + price + '/yr';
+    updateSummary();
+    showToast('Domain selected: ' + domain, 'success');
+  }
+
+  function updateSummary() {
+    const plan = plans[selectedPlan];
+    document.getElementById('summary-plan').textContent = plan.name + ' - $' + plan.price + '/mo';
+
+    if (selectedDomain === 'subdomain') {
+      document.getElementById('summary-domain').textContent = 'Free subdomain';
+    }
+
+    const total = plan.price + (domainPrice > 0 ? Math.round(domainPrice / 12) : 0);
+    document.getElementById('summary-total').textContent = '$' + total + '/mo';
+  }
+
+  async function deploy() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; display: inline-block;"></span> Deploying...';
+
+    // Simulate deployment
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    showToast('Deployment started! You will receive an email when it\'s ready.', 'success');
+
+    // Redirect to dashboard
+    setTimeout(() => {
+      window.location.href = '/dashboard/?deployed=' + (projectId || 'new');
+    }, 2000);
+  }
+
+  // Initialize
+  updateSummary();
+</script>
+<style>
+  @media (max-width: 768px) {
+    .provision-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{{ end }}
