@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	appconfig "github.com/antinvestor/builder/apps/worker/config"
@@ -64,6 +65,7 @@ func (h *TestExecutionRequestEvent) Execute(ctx context.Context, payload any) er
 	)
 
 	// Emit test execution started event
+	// TODO: Make TestCommand, TimeoutSeconds, and Language configurable via WorkerConfig
 	if err := h.eventsMan.Emit(ctx, string(events.TestExecutionStarted), &events.TestExecutionStartedPayload{
 		TestCommand:    "go test ./...",
 		TimeoutSeconds: 300,
@@ -73,9 +75,10 @@ func (h *TestExecutionRequestEvent) Execute(ctx context.Context, payload any) er
 	}
 
 	// Publish test execution request to executor queue
+	// TODO: Detect language from workspace or config instead of hardcoding
 	return h.queueMan.Publish(ctx, h.cfg.QueueExecutionRequestName, &events.TestExecutionRequestedPayload{
 		ExecutionID:   request.ExecutionID,
-		Language:      "go", // TODO: Detect language from workspace
+		Language:      "go",
 		TestFiles:     []string{},
 		WorkspacePath: "", // Executor will use its own workspace
 	})
@@ -134,8 +137,10 @@ func (h *ReviewRequestEvent) Execute(ctx context.Context, payload any) error {
 			"execution_id", request.ExecutionID.String(),
 		)
 		// Emit iteration required event
+		// TODO: IterationNumber should be tracked in execution state, not hardcoded
+		// TODO: MaxIterationsRemaining should be calculated from tracked iteration count
 		return h.eventsMan.Emit(ctx, string(events.IterationRequired), &events.IterationRequiredPayload{
-			IterationNumber: 1,
+			IterationNumber: 1, // TODO: Track and increment across iterations
 			Reason:          events.IterationReasonTestsFailed,
 			Issues: []events.IterationIssue{
 				{
@@ -145,7 +150,7 @@ func (h *ReviewRequestEvent) Execute(ctx context.Context, payload any) error {
 				},
 			},
 			ProposedActions:        []string{"Fix failing tests", "Check test output for errors"},
-			MaxIterationsRemaining: h.cfg.ReviewThresholds.MaxIterations - 1,
+			MaxIterationsRemaining: h.cfg.ReviewThresholds.MaxIterations - 1, // TODO: Calculate from tracked count
 			RequiredAt:             time.Now(),
 		})
 	}
@@ -298,10 +303,11 @@ func (h *ReviewResultEvent) handleApproval(ctx context.Context, request *events.
 	durationMS := time.Since(startTime).Milliseconds()
 
 	// Emit git push completed
+	// TODO: repoService.PushBranch should return the remote HEAD commit SHA
 	if emitErr := h.eventsMan.Emit(ctx, string(events.GitPushCompleted), &events.GitPushCompletedPayload{
 		BranchName:      branchName,
 		RemoteRef:       fmt.Sprintf("refs/heads/%s", branchName),
-		RemoteCommitSHA: "", // Could be populated by getting HEAD after push
+		RemoteCommitSHA: "", // TODO: Populate from repoService.PushBranch return value
 		CommitsPushed:   1,
 		DurationMS:      durationMS,
 		CompletedAt:     time.Now(),
@@ -310,10 +316,11 @@ func (h *ReviewResultEvent) handleApproval(ctx context.Context, request *events.
 	}
 
 	// Emit feature delivered
+	// TODO: HeadCommitSHA should be the commit SHA returned from the push
 	return h.eventsMan.Emit(ctx, string(events.FeatureDelivered), &events.FeatureDeliveredPayload{
 		BranchName:    branchName,
 		RemoteRef:     fmt.Sprintf("refs/heads/%s", branchName),
-		HeadCommitSHA: "", // Could be populated by getting HEAD
+		HeadCommitSHA: "", // TODO: Populate from repoService.PushBranch return value
 		Artifacts:     []events.ArtifactReference{},
 		Summary: events.DeliverySummary{
 			Title:       "Feature delivered successfully",
@@ -332,10 +339,11 @@ func (h *ReviewResultEvent) handleIteration(ctx context.Context, request *events
 		"blocking_issues", len(request.BlockingIssues),
 	)
 
+	// TODO: IterationNumber should be retrieved from execution state and incremented
 	return h.eventsMan.Emit(ctx, string(events.IterationRequired), &events.FeatureIterationRequestedPayload{
 		ExecutionID:     request.ExecutionID,
 		ReviewID:        request.ReviewID,
-		IterationNumber: 1, // TODO: Track iteration count
+		IterationNumber: 1, // TODO: Track and increment iteration count in execution state
 		Issues:          request.BlockingIssues,
 		IterationGuidance: &events.IterationGuidance{
 			MustFix: extractIssueTitles(request.BlockingIssues),
@@ -408,17 +416,45 @@ func (h *IterationEvent) Validate(ctx context.Context, payload any) error {
 }
 
 // Execute processes iteration request.
+// Handles both *FeatureIterationRequestedPayload (from review) and *IterationRequiredPayload (from test failures).
 func (h *IterationEvent) Execute(ctx context.Context, payload any) error {
 	log := util.Log(ctx)
-	request, ok := payload.(*events.FeatureIterationRequestedPayload)
-	if !ok {
-		return fmt.Errorf("invalid payload type: expected *FeatureIterationRequestedPayload")
+
+	// Handle both payload types since IterationRequired can come from different sources
+	var executionID events.ExecutionID
+	var iterationNumber int
+	var issues []events.ReviewIssue
+	var reason events.IterationReason
+
+	switch p := payload.(type) {
+	case *events.FeatureIterationRequestedPayload:
+		executionID = p.ExecutionID
+		iterationNumber = p.IterationNumber
+		issues = p.Issues
+		reason = events.IterationReasonReviewRejected
+
+	case *events.IterationRequiredPayload:
+		// Handle iteration from test failures
+		// TODO: Need to pass execution ID and track iteration count properly
+		iterationNumber = p.IterationNumber
+		reason = p.Reason
+		// Convert IterationIssues to ReviewIssues for consistent handling
+		for _, issue := range p.Issues {
+			issues = append(issues, events.ReviewIssue{
+				Type:        events.ReviewIssueType(issue.Type),
+				Description: issue.Description,
+				Severity:    events.ReviewIssueSeverity(issue.Severity),
+			})
+		}
+
+	default:
+		return fmt.Errorf("invalid payload type: expected *FeatureIterationRequestedPayload or *IterationRequiredPayload")
 	}
 
 	log.Info("starting iteration",
-		"execution_id", request.ExecutionID.String(),
-		"iteration_number", request.IterationNumber,
-		"issues", len(request.Issues),
+		"execution_id", executionID.String(),
+		"iteration_number", iterationNumber,
+		"issues", len(issues),
 	)
 
 	// Check max iterations
@@ -426,9 +462,9 @@ func (h *IterationEvent) Execute(ctx context.Context, payload any) error {
 	if maxIterations == 0 {
 		maxIterations = 3
 	}
-	if request.IterationNumber >= maxIterations {
+	if iterationNumber >= maxIterations {
 		log.Warn("max iterations reached, aborting",
-			"execution_id", request.ExecutionID.String(),
+			"execution_id", executionID.String(),
 			"max_iterations", maxIterations,
 		)
 		return h.eventsMan.Emit(ctx, string(events.FeatureExecutionFailed), &events.FeatureExecutionFailedPayload{
@@ -449,12 +485,12 @@ func (h *IterationEvent) Execute(ctx context.Context, payload any) error {
 	}
 
 	// Convert ReviewIssues to IterationIssues for the IterationStartedPayload
-	targetIssues := convertToIterationIssues(request.Issues)
+	targetIssues := convertToIterationIssues(issues)
 
 	// Emit iteration started
 	if err := h.eventsMan.Emit(ctx, string(events.IterationStarted), &events.IterationStartedPayload{
-		IterationNumber: request.IterationNumber,
-		Reason:          events.IterationReasonReviewRejected,
+		IterationNumber: iterationNumber,
+		Reason:          reason,
 		TargetIssues:    targetIssues,
 		Strategy: events.IterationStrategy{
 			Approach: events.IterationApproachFix,
@@ -465,12 +501,12 @@ func (h *IterationEvent) Execute(ctx context.Context, payload any) error {
 	}
 
 	// Build feedback from review issues
-	feedback := buildFeedbackFromReviewIssues(request.Issues)
+	feedback := buildFeedbackFromReviewIssues(issues)
 
 	// Generate new patches with feedback
 	resp, err := h.bamlClient.GeneratePatch(ctx, &GeneratePatchRequest{
-		ExecutionID:        request.ExecutionID,
-		IterationNumber:    request.IterationNumber,
+		ExecutionID:        executionID,
+		IterationNumber:    iterationNumber,
 		FeedbackFromReview: feedback,
 	})
 	if err != nil {
@@ -478,12 +514,14 @@ func (h *IterationEvent) Execute(ctx context.Context, payload any) error {
 	}
 
 	// Emit patch generation completed to trigger test execution again
+	// TODO: After applying patches in repo, get the actual commit SHA and use it here.
+	// The bamlClient.GeneratePatch only generates patches; the repo service applies them and creates the commit.
 	return h.eventsMan.Emit(ctx, string(events.PatchGenerationCompleted), &events.PatchGenerationCompletedPayload{
-		ExecutionID:    request.ExecutionID,
+		ExecutionID:    executionID,
 		TotalSteps:     1,
 		StepsCompleted: 1,
 		TotalLLMTokens: resp.TokensUsed,
-		FinalCommitSHA: "iteration-commit",
+		FinalCommitSHA: "", // TODO: Populate with actual commit SHA after applying patches
 		CompletedAt:    time.Now(),
 	})
 }
@@ -572,18 +610,19 @@ func buildFeedbackFromReviewIssues(issues []events.ReviewIssue) string {
 		return ""
 	}
 
-	feedback := "Please fix the following issues:\n\n"
+	var feedback strings.Builder
+	feedback.WriteString("Please fix the following issues:\n\n")
 	for i, issue := range issues {
-		feedback += fmt.Sprintf("%d. [%s] %s\n", i+1, issue.Severity, issue.Title)
+		feedback.WriteString(fmt.Sprintf("%d. [%s] %s\n", i+1, issue.Severity, issue.Title))
 		if issue.Description != "" {
-			feedback += fmt.Sprintf("   %s\n", issue.Description)
+			feedback.WriteString(fmt.Sprintf("   %s\n", issue.Description))
 		}
 		if issue.Suggestion != "" {
-			feedback += fmt.Sprintf("   Suggestion: %s\n", issue.Suggestion)
+			feedback.WriteString(fmt.Sprintf("   Suggestion: %s\n", issue.Suggestion))
 		}
-		feedback += "\n"
+		feedback.WriteString("\n")
 	}
-	return feedback
+	return feedback.String()
 }
 
 // convertToIterationIssues converts ReviewIssues to IterationIssues.
