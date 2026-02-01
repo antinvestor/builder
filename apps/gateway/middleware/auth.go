@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -9,13 +10,7 @@ import (
 	"github.com/pitabwire/util"
 )
 
-// contextKey is a type for context keys.
-type contextKey string
-
 const (
-	// UserContextKey is the context key for the authenticated user.
-	UserContextKey contextKey = "authenticated_user"
-
 	// authHeaderParts is the number of parts in a valid Authorization header.
 	authHeaderParts = 2
 	// bearerScheme is the authentication scheme for Bearer tokens.
@@ -41,25 +36,10 @@ func (am *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 		log := util.Log(ctx)
 
 		// Extract token from Authorization header
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			log.Debug("missing authorization header")
-			am.unauthorized(w, "Missing authorization header")
-			return
-		}
-
-		// Validate Bearer token format
-		parts := strings.SplitN(authHeader, " ", authHeaderParts)
-		if len(parts) != authHeaderParts || !strings.EqualFold(parts[0], bearerScheme) {
-			log.Debug("invalid authorization header format")
-			am.unauthorized(w, "Invalid authorization header format. Expected: Bearer <token>")
-			return
-		}
-
-		token := parts[1]
-		if token == "" {
-			log.Debug("empty token")
-			am.unauthorized(w, "Empty token")
+		token, ok := extractBearerToken(r.Header.Get("Authorization"))
+		if !ok {
+			log.Debug("missing or invalid authorization header")
+			am.unauthorized(w, "Missing or invalid authorization header. Expected: Bearer <token>")
 			return
 		}
 
@@ -73,10 +53,7 @@ func (am *AuthMiddleware) Middleware(next http.Handler) http.Handler {
 
 		// Extract user identity from the authenticated context
 		claims := security.ClaimsFromContext(authCtx)
-		userID := ""
-		if claims != nil {
-			userID, _ = claims.GetSubject()
-		}
+		userID := getUserIDFromClaims(authCtx, claims)
 
 		log.Info("authenticated request",
 			"user_id", userID,
@@ -93,7 +70,11 @@ func (am *AuthMiddleware) unauthorized(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("WWW-Authenticate", `Bearer realm="feature-gateway"`)
 	w.WriteHeader(http.StatusUnauthorized)
-	_, _ = w.Write([]byte(`{"error":"unauthorized","message":"` + message + `"}`))
+	response := map[string]string{
+		"error":   "unauthorized",
+		"message": message,
+	}
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // GetUserFromContext retrieves the authenticated user claims from context.
@@ -108,22 +89,9 @@ func (am *AuthMiddleware) OptionalAuthMiddleware(next http.Handler) http.Handler
 		log := util.Log(ctx)
 
 		// Extract token from Authorization header if present
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			// No auth header - continue without authentication
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		// Try to validate token
-		parts := strings.SplitN(authHeader, " ", authHeaderParts)
-		if len(parts) != authHeaderParts || !strings.EqualFold(parts[0], bearerScheme) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		token := parts[1]
-		if token == "" {
+		token, ok := extractBearerToken(r.Header.Get("Authorization"))
+		if !ok {
+			// No valid auth header - continue without authentication
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -136,7 +104,7 @@ func (am *AuthMiddleware) OptionalAuthMiddleware(next http.Handler) http.Handler
 
 		claims := security.ClaimsFromContext(authCtx)
 		if claims != nil {
-			userID, _ := claims.GetSubject()
+			userID := getUserIDFromClaims(authCtx, claims)
 			log.Info("authenticated request (optional)",
 				"user_id", userID,
 				"path", r.URL.Path,
@@ -144,4 +112,37 @@ func (am *AuthMiddleware) OptionalAuthMiddleware(next http.Handler) http.Handler
 		}
 		next.ServeHTTP(w, r.WithContext(authCtx))
 	})
+}
+
+// extractBearerToken extracts the token from an Authorization header.
+// Returns the token and true if extraction was successful, or empty string and false otherwise.
+func extractBearerToken(authHeader string) (string, bool) {
+	if authHeader == "" {
+		return "", false
+	}
+
+	parts := strings.SplitN(authHeader, " ", authHeaderParts)
+	if len(parts) != authHeaderParts || !strings.EqualFold(parts[0], bearerScheme) {
+		return "", false
+	}
+
+	token := parts[1]
+	if token == "" {
+		return "", false
+	}
+
+	return token, true
+}
+
+// getUserIDFromClaims safely extracts the user ID from claims.
+func getUserIDFromClaims(ctx context.Context, claims *security.AuthenticationClaims) string {
+	if claims == nil {
+		return ""
+	}
+	userID, err := claims.GetSubject()
+	if err != nil {
+		util.Log(ctx).Warn("could not get subject from claims", "error", err)
+		return ""
+	}
+	return userID
 }

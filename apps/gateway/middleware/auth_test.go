@@ -52,7 +52,7 @@ func TestAuthMiddleware_MissingAuthHeader(t *testing.T) {
 	wrapped.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Missing authorization header")
+	assert.Contains(t, rr.Body.String(), "Missing or invalid authorization header")
 	assert.Equal(t, `Bearer realm="feature-gateway"`, rr.Header().Get("WWW-Authenticate"))
 }
 

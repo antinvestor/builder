@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"encoding/json"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -122,11 +124,14 @@ func getClientID(r *http.Request) string {
 
 	// Check for X-Forwarded-For (behind proxy/load balancer)
 	if xff := r.Header.Get(xForwardedForHdr); xff != "" {
-		// X-Forwarded-For can contain multiple IPs, use the first one
-		if host, _, err := net.SplitHostPort(xff); err == nil {
+		// X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2), use the first one
+		ips := strings.Split(xff, ",")
+		firstIP := strings.TrimSpace(ips[0])
+		// The firstIP might still have a port, so we try to split it
+		if host, _, err := net.SplitHostPort(firstIP); err == nil {
 			return "ip:" + host
 		}
-		return "ip:" + xff
+		return "ip:" + firstIP
 	}
 
 	// Use remote address
@@ -177,20 +182,15 @@ func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 			w.WriteHeader(http.StatusTooManyRequests)
-			retryStr := strconv.Itoa(retryAfter)
-			_, _ = w.Write([]byte(
-				`{"error":"rate_limit_exceeded","message":"Too many requests. Please retry after ` +
-					retryStr + ` seconds.","retry_after":` + retryStr + `}`,
-			))
+			response := map[string]any{
+				"error":       "rate_limit_exceeded",
+				"message":     "Too many requests. Please retry after " + strconv.Itoa(retryAfter) + " seconds.",
+				"retry_after": retryAfter,
+			}
+			_ = json.NewEncoder(w).Encode(response)
 			return
 		}
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-// RateLimitMiddleware is a convenience function to create rate limiting middleware.
-func RateLimitMiddleware(requestsPerMinute, burstSize int) func(http.Handler) http.Handler {
-	limiter := NewRateLimiter(requestsPerMinute, burstSize)
-	return limiter.Middleware
 }
