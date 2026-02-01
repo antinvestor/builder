@@ -46,7 +46,7 @@ func main() {
 
 	securityAnalyzer := review.NewPatternSecurityAnalyzer(&cfg)
 	architectureAnalyzer := review.NewPatternArchitectureAnalyzer(&cfg)
-	decisionEngine := review.NewConservativeDecisionEngine(&cfg)
+	decisionEngine := review.NewThresholdDecisionEngine(&cfg)
 	killSwitchService := review.NewPersistentKillSwitchService(&cfg, evtsMan)
 
 	_ = securityAnalyzer
