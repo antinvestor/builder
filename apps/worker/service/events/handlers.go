@@ -34,15 +34,15 @@ type QueueManager interface {
 // RepositoryCheckoutEvent handles repository checkout operations.
 type RepositoryCheckoutEvent struct {
 	cfg         *appconfig.WorkerConfig
-	repoService *repository.RepositoryService
-	eventsMan   EventsEmitter
+	repoService *repository.Service
+	eventsMan   Emitter
 }
 
 // NewRepositoryCheckoutEvent creates a new repository checkout event handler.
 func NewRepositoryCheckoutEvent(
 	cfg *appconfig.WorkerConfig,
-	repoService *repository.RepositoryService,
-	eventsMan EventsEmitter,
+	repoService *repository.Service,
+	eventsMan Emitter,
 ) *RepositoryCheckoutEvent {
 	return &RepositoryCheckoutEvent{
 		cfg:         cfg,
@@ -161,16 +161,16 @@ type Patch struct {
 type PatchGenerationEvent struct {
 	cfg         *appconfig.WorkerConfig
 	bamlClient  BAMLClient
-	repoService *repository.RepositoryService
-	eventsMan   EventsEmitter
+	repoService *repository.Service
+	eventsMan   Emitter
 }
 
 // NewPatchGenerationEvent creates a new patch generation event handler.
 func NewPatchGenerationEvent(
 	cfg *appconfig.WorkerConfig,
 	bamlClient BAMLClient,
-	repoService *repository.RepositoryService,
-	eventsMan EventsEmitter,
+	repoService *repository.Service,
+	eventsMan Emitter,
 ) *PatchGenerationEvent {
 	return &PatchGenerationEvent{
 		cfg:         cfg,
@@ -291,7 +291,7 @@ type FeatureFailureEvent struct {
 	cfg           *appconfig.WorkerConfig
 	executionRepo repository.ExecutionRepository
 	queueMan      QueueManager
-	eventsMan     EventsEmitter
+	eventsMan     Emitter
 }
 
 // NewFeatureFailureEvent creates a new feature failure event handler.
@@ -299,7 +299,7 @@ func NewFeatureFailureEvent(
 	cfg *appconfig.WorkerConfig,
 	executionRepo repository.ExecutionRepository,
 	queueMan QueueManager,
-	eventsMan EventsEmitter,
+	eventsMan Emitter,
 ) *FeatureFailureEvent {
 	return &FeatureFailureEvent{
 		cfg:           cfg,

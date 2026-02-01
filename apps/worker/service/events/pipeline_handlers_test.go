@@ -1,3 +1,4 @@
+//nolint:testpackage // white-box testing requires internal package access
 package events
 
 import (
@@ -6,10 +7,11 @@ import (
 	"testing"
 	"time"
 
-	appconfig "github.com/antinvestor/builder/apps/worker/config"
-	"github.com/antinvestor/builder/internal/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	appconfig "github.com/antinvestor/builder/apps/worker/config"
+	"github.com/antinvestor/builder/internal/events"
 )
 
 // =============================================================================
@@ -26,7 +28,7 @@ type publishedMessage struct {
 	payload   any
 }
 
-func (m *mockQueueManager) Publish(ctx context.Context, queueName string, payload any, headers ...map[string]string) error {
+func (m *mockQueueManager) Publish(_ context.Context, queueName string, payload any, _ ...map[string]string) error {
 	if m.publishError != nil {
 		return m.publishError
 	}
@@ -37,7 +39,7 @@ func (m *mockQueueManager) Publish(ctx context.Context, queueName string, payloa
 	return nil
 }
 
-type mockEventsEmitter struct {
+type mockEmitter struct {
 	emittedEvents []emittedEvent
 	emitError     error
 }
@@ -47,7 +49,7 @@ type emittedEvent struct {
 	payload any
 }
 
-func (m *mockEventsEmitter) Emit(ctx context.Context, name string, payload any) error {
+func (m *mockEmitter) Emit(_ context.Context, name string, payload any) error {
 	if m.emitError != nil {
 		return m.emitError
 	}
@@ -63,7 +65,7 @@ type mockBAMLClient struct {
 	generatePatchError    error
 }
 
-func (m *mockBAMLClient) GeneratePatch(ctx context.Context, req *GeneratePatchRequest) (*GeneratePatchResponse, error) {
+func (m *mockBAMLClient) GeneratePatch(_ context.Context, _ *GeneratePatchRequest) (*GeneratePatchResponse, error) {
 	if m.generatePatchError != nil {
 		return nil, m.generatePatchError
 	}
@@ -94,7 +96,7 @@ func TestTestExecutionRequestEvent_Execute_Success(t *testing.T) {
 		QueueExecutionRequestName: "test-execution-queue",
 	}
 	queueMan := &mockQueueManager{}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := NewTestExecutionRequestEvent(cfg, queueMan, eventsMan)
 
@@ -124,13 +126,13 @@ func TestTestExecutionRequestEvent_Execute_Success(t *testing.T) {
 func TestTestExecutionRequestEvent_Execute_InvalidPayload(t *testing.T) {
 	handler := NewTestExecutionRequestEvent(nil, nil, nil)
 	err := handler.Execute(context.Background(), "invalid")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid payload type")
 }
 
 func TestTestExecutionRequestEvent_Execute_EventEmitError(t *testing.T) {
 	cfg := &appconfig.WorkerConfig{}
-	eventsMan := &mockEventsEmitter{emitError: errors.New("emit failed")}
+	eventsMan := &mockEmitter{emitError: errors.New("emit failed")}
 
 	handler := NewTestExecutionRequestEvent(cfg, nil, eventsMan)
 
@@ -139,7 +141,7 @@ func TestTestExecutionRequestEvent_Execute_EventEmitError(t *testing.T) {
 	}
 
 	err := handler.Execute(context.Background(), payload)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "emit failed")
 }
 
@@ -157,7 +159,7 @@ func TestReviewRequestEvent_Execute_TestsPassed(t *testing.T) {
 		QueueReviewRequestName: "review-request-queue",
 	}
 	queueMan := &mockQueueManager{}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := NewReviewRequestEvent(cfg, queueMan, eventsMan)
 
@@ -189,7 +191,7 @@ func TestReviewRequestEvent_Execute_TestsFailed(t *testing.T) {
 		},
 	}
 	queueMan := &mockQueueManager{}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := NewReviewRequestEvent(cfg, queueMan, eventsMan)
 
@@ -231,7 +233,7 @@ func TestReviewResultEvent_Name(t *testing.T) {
 
 func TestReviewResultEvent_Execute_ManualReview(t *testing.T) {
 	cfg := &appconfig.WorkerConfig{}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	// Create a minimal handler - we test ManualReview decision which doesn't require repoService
 	handler := &ReviewResultEvent{
@@ -254,7 +256,7 @@ func TestReviewResultEvent_Execute_ManualReview(t *testing.T) {
 
 func TestReviewResultEvent_Execute_Iterate(t *testing.T) {
 	cfg := &appconfig.WorkerConfig{}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := &ReviewResultEvent{
 		cfg:       cfg,
@@ -293,7 +295,7 @@ func TestReviewResultEvent_Execute_Iterate(t *testing.T) {
 
 func TestReviewResultEvent_Execute_Abort(t *testing.T) {
 	cfg := &appconfig.WorkerConfig{}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := &ReviewResultEvent{
 		cfg:       cfg,
@@ -321,7 +323,7 @@ func TestReviewResultEvent_Execute_Abort(t *testing.T) {
 
 func TestReviewResultEvent_Execute_UnknownDecision(t *testing.T) {
 	cfg := &appconfig.WorkerConfig{}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := &ReviewResultEvent{
 		cfg:       cfg,
@@ -334,7 +336,7 @@ func TestReviewResultEvent_Execute_UnknownDecision(t *testing.T) {
 	}
 
 	err := handler.Execute(context.Background(), payload)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown decision")
 }
 
@@ -358,7 +360,7 @@ func TestIterationEvent_Execute_Success(t *testing.T) {
 			TokensUsed: 150,
 		},
 	}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := NewIterationEvent(cfg, bamlClient, eventsMan)
 
@@ -404,7 +406,7 @@ func TestIterationEvent_Execute_MaxIterationsReached(t *testing.T) {
 			MaxIterations: 3,
 		},
 	}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := NewIterationEvent(cfg, nil, eventsMan)
 
@@ -430,7 +432,7 @@ func TestIterationEvent_Execute_DefaultMaxIterations(t *testing.T) {
 			MaxIterations: 0, // Not set, should default to 3
 		},
 	}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := NewIterationEvent(cfg, nil, eventsMan)
 
@@ -455,7 +457,7 @@ func TestIterationEvent_Execute_BAMLError(t *testing.T) {
 	bamlClient := &mockBAMLClient{
 		generatePatchError: errors.New("BAML generation failed"),
 	}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := NewIterationEvent(cfg, bamlClient, eventsMan)
 
@@ -466,7 +468,7 @@ func TestIterationEvent_Execute_BAMLError(t *testing.T) {
 
 	err := handler.Execute(context.Background(), payload)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "BAML generation failed")
 }
 
@@ -486,7 +488,7 @@ func TestDeliveryEvent_PayloadType(t *testing.T) {
 
 func TestDeliveryEvent_Execute_Success(t *testing.T) {
 	cfg := &appconfig.WorkerConfig{}
-	eventsMan := &mockEventsEmitter{}
+	eventsMan := &mockEmitter{}
 
 	handler := NewDeliveryEvent(cfg, nil, nil, eventsMan)
 
@@ -514,7 +516,7 @@ func TestDeliveryEvent_Execute_Success(t *testing.T) {
 func TestDeliveryEvent_Execute_InvalidPayload(t *testing.T) {
 	handler := NewDeliveryEvent(nil, nil, nil, nil)
 	err := handler.Execute(context.Background(), "invalid")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid payload type")
 }
 

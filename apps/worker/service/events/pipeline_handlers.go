@@ -2,15 +2,20 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/pitabwire/util"
+
 	appconfig "github.com/antinvestor/builder/apps/worker/config"
 	"github.com/antinvestor/builder/apps/worker/service/repository"
 	"github.com/antinvestor/builder/internal/events"
-	"github.com/pitabwire/util"
 )
+
+// Test execution timeout constant.
+const defaultTestTimeoutSeconds = 300
 
 // =============================================================================
 // Test Execution Request Handler
@@ -20,14 +25,14 @@ import (
 type TestExecutionRequestEvent struct {
 	cfg       *appconfig.WorkerConfig
 	queueMan  QueueManager
-	eventsMan EventsEmitter
+	eventsMan Emitter
 }
 
 // NewTestExecutionRequestEvent creates a new test execution request event handler.
 func NewTestExecutionRequestEvent(
 	cfg *appconfig.WorkerConfig,
 	queueMan QueueManager,
-	eventsMan EventsEmitter,
+	eventsMan Emitter,
 ) *TestExecutionRequestEvent {
 	return &TestExecutionRequestEvent{
 		cfg:       cfg,
@@ -47,7 +52,7 @@ func (h *TestExecutionRequestEvent) PayloadType() any {
 }
 
 // Validate validates the payload.
-func (h *TestExecutionRequestEvent) Validate(ctx context.Context, payload any) error {
+func (h *TestExecutionRequestEvent) Validate(_ context.Context, _ any) error {
 	return nil
 }
 
@@ -56,7 +61,7 @@ func (h *TestExecutionRequestEvent) Execute(ctx context.Context, payload any) er
 	log := util.Log(ctx)
 	request, ok := payload.(*events.PatchGenerationCompletedPayload)
 	if !ok {
-		return fmt.Errorf("invalid payload type: expected *PatchGenerationCompletedPayload")
+		return errors.New("invalid payload type: expected *PatchGenerationCompletedPayload")
 	}
 
 	log.Info("sending test execution request",
@@ -68,7 +73,7 @@ func (h *TestExecutionRequestEvent) Execute(ctx context.Context, payload any) er
 	// TODO: Make TestCommand, TimeoutSeconds, and Language configurable via WorkerConfig
 	if err := h.eventsMan.Emit(ctx, string(events.TestExecutionStarted), &events.TestExecutionStartedPayload{
 		TestCommand:    "go test ./...",
-		TimeoutSeconds: 300,
+		TimeoutSeconds: defaultTestTimeoutSeconds,
 		StartedAt:      time.Now(),
 	}); err != nil {
 		return err
@@ -92,14 +97,14 @@ func (h *TestExecutionRequestEvent) Execute(ctx context.Context, payload any) er
 type ReviewRequestEvent struct {
 	cfg       *appconfig.WorkerConfig
 	queueMan  QueueManager
-	eventsMan EventsEmitter
+	eventsMan Emitter
 }
 
 // NewReviewRequestEvent creates a new review request event handler.
 func NewReviewRequestEvent(
 	cfg *appconfig.WorkerConfig,
 	queueMan QueueManager,
-	eventsMan EventsEmitter,
+	eventsMan Emitter,
 ) *ReviewRequestEvent {
 	return &ReviewRequestEvent{
 		cfg:       cfg,
@@ -119,7 +124,7 @@ func (h *ReviewRequestEvent) PayloadType() any {
 }
 
 // Validate validates the payload.
-func (h *ReviewRequestEvent) Validate(ctx context.Context, payload any) error {
+func (h *ReviewRequestEvent) Validate(_ context.Context, _ any) error {
 	return nil
 }
 
@@ -128,7 +133,7 @@ func (h *ReviewRequestEvent) Execute(ctx context.Context, payload any) error {
 	log := util.Log(ctx)
 	request, ok := payload.(*events.TestExecutionCompletedPayload)
 	if !ok {
-		return fmt.Errorf("invalid payload type: expected *TestExecutionCompletedPayload")
+		return errors.New("invalid payload type: expected *TestExecutionCompletedPayload")
 	}
 
 	// Only request review if tests passed
@@ -184,19 +189,19 @@ func (h *ReviewRequestEvent) Execute(ctx context.Context, payload any) error {
 // ReviewResultEvent handles review results from the reviewer service.
 type ReviewResultEvent struct {
 	cfg         *appconfig.WorkerConfig
-	repoService *repository.RepositoryService
+	repoService *repository.Service
 	bamlClient  BAMLClient
 	queueMan    QueueManager
-	eventsMan   EventsEmitter
+	eventsMan   Emitter
 }
 
 // NewReviewResultEvent creates a new review result event handler.
 func NewReviewResultEvent(
 	cfg *appconfig.WorkerConfig,
-	repoService *repository.RepositoryService,
+	repoService *repository.Service,
 	bamlClient BAMLClient,
 	queueMan QueueManager,
-	eventsMan EventsEmitter,
+	eventsMan Emitter,
 ) *ReviewResultEvent {
 	return &ReviewResultEvent{
 		cfg:         cfg,
@@ -218,7 +223,7 @@ func (h *ReviewResultEvent) PayloadType() any {
 }
 
 // Validate validates the payload.
-func (h *ReviewResultEvent) Validate(ctx context.Context, payload any) error {
+func (h *ReviewResultEvent) Validate(_ context.Context, _ any) error {
 	return nil
 }
 
@@ -227,7 +232,7 @@ func (h *ReviewResultEvent) Execute(ctx context.Context, payload any) error {
 	log := util.Log(ctx)
 	request, ok := payload.(*events.ComprehensiveReviewCompletedPayload)
 	if !ok {
-		return fmt.Errorf("invalid payload type: expected *ComprehensiveReviewCompletedPayload")
+		return errors.New("invalid payload type: expected *ComprehensiveReviewCompletedPayload")
 	}
 
 	log.Info("processing review result",
@@ -267,7 +272,10 @@ func (h *ReviewResultEvent) Execute(ctx context.Context, payload any) error {
 	}
 }
 
-func (h *ReviewResultEvent) handleApproval(ctx context.Context, request *events.ComprehensiveReviewCompletedPayload) error {
+func (h *ReviewResultEvent) handleApproval(
+	ctx context.Context,
+	request *events.ComprehensiveReviewCompletedPayload,
+) error {
 	log := util.Log(ctx)
 	branchName := fmt.Sprintf("feature/%s", request.ExecutionID.String())
 
@@ -332,7 +340,10 @@ func (h *ReviewResultEvent) handleApproval(ctx context.Context, request *events.
 	})
 }
 
-func (h *ReviewResultEvent) handleIteration(ctx context.Context, request *events.ComprehensiveReviewCompletedPayload) error {
+func (h *ReviewResultEvent) handleIteration(
+	ctx context.Context,
+	request *events.ComprehensiveReviewCompletedPayload,
+) error {
 	log := util.Log(ctx)
 	log.Info("iteration required",
 		"execution_id", request.ExecutionID.String(),
@@ -352,7 +363,10 @@ func (h *ReviewResultEvent) handleIteration(ctx context.Context, request *events
 	})
 }
 
-func (h *ReviewResultEvent) handleAbort(ctx context.Context, request *events.ComprehensiveReviewCompletedPayload) error {
+func (h *ReviewResultEvent) handleAbort(
+	ctx context.Context,
+	request *events.ComprehensiveReviewCompletedPayload,
+) error {
 	log := util.Log(ctx)
 	log.Warn("aborting feature execution",
 		"execution_id", request.ExecutionID.String(),
@@ -384,14 +398,14 @@ func (h *ReviewResultEvent) handleAbort(ctx context.Context, request *events.Com
 type IterationEvent struct {
 	cfg        *appconfig.WorkerConfig
 	bamlClient BAMLClient
-	eventsMan  EventsEmitter
+	eventsMan  Emitter
 }
 
 // NewIterationEvent creates a new iteration event handler.
 func NewIterationEvent(
 	cfg *appconfig.WorkerConfig,
 	bamlClient BAMLClient,
-	eventsMan EventsEmitter,
+	eventsMan Emitter,
 ) *IterationEvent {
 	return &IterationEvent{
 		cfg:        cfg,
@@ -411,7 +425,7 @@ func (h *IterationEvent) PayloadType() any {
 }
 
 // Validate validates the payload.
-func (h *IterationEvent) Validate(ctx context.Context, payload any) error {
+func (h *IterationEvent) Validate(_ context.Context, _ any) error {
 	return nil
 }
 
@@ -448,7 +462,9 @@ func (h *IterationEvent) Execute(ctx context.Context, payload any) error {
 		}
 
 	default:
-		return fmt.Errorf("invalid payload type: expected *FeatureIterationRequestedPayload or *IterationRequiredPayload")
+		return errors.New(
+			"invalid payload type: expected *FeatureIterationRequestedPayload or *IterationRequiredPayload",
+		)
 	}
 
 	log.Info("starting iteration",
@@ -533,17 +549,17 @@ func (h *IterationEvent) Execute(ctx context.Context, payload any) error {
 // DeliveryEvent handles feature delivery.
 type DeliveryEvent struct {
 	cfg         *appconfig.WorkerConfig
-	repoService *repository.RepositoryService
+	repoService *repository.Service
 	queueMan    QueueManager
-	eventsMan   EventsEmitter
+	eventsMan   Emitter
 }
 
 // NewDeliveryEvent creates a new delivery event handler.
 func NewDeliveryEvent(
 	cfg *appconfig.WorkerConfig,
-	repoService *repository.RepositoryService,
+	repoService *repository.Service,
 	queueMan QueueManager,
-	eventsMan EventsEmitter,
+	eventsMan Emitter,
 ) *DeliveryEvent {
 	return &DeliveryEvent{
 		cfg:         cfg,
@@ -564,7 +580,7 @@ func (h *DeliveryEvent) PayloadType() any {
 }
 
 // Validate validates the payload.
-func (h *DeliveryEvent) Validate(ctx context.Context, payload any) error {
+func (h *DeliveryEvent) Validate(_ context.Context, _ any) error {
 	return nil
 }
 
@@ -573,7 +589,7 @@ func (h *DeliveryEvent) Execute(ctx context.Context, payload any) error {
 	log := util.Log(ctx)
 	request, ok := payload.(*events.GitPushCompletedPayload)
 	if !ok {
-		return fmt.Errorf("invalid payload type: expected *GitPushCompletedPayload")
+		return errors.New("invalid payload type: expected *GitPushCompletedPayload")
 	}
 
 	log.Info("delivery completed",

@@ -20,7 +20,6 @@ import (
 // LLM configuration defaults.
 const defaultMaxOutputTokens = 16384
 
-//nolint:funlen // Main function initializes many components
 func main() {
 	ctx := context.Background()
 
@@ -54,7 +53,12 @@ func main() {
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
 	executionRepo := repository.NewExecutionRepository(ctx, dbPool)
 	workspaceRepo := repository.NewWorkspaceRepository(ctx, dbPool)
-	repoService := repository.NewRepositoryService(&cfg, workspaceRepo)
+
+	// ==========================================================================
+	// Setup Services
+	// ==========================================================================
+
+	repoService := repository.NewService(&cfg, workspaceRepo)
 	bamlClient := setupBAMLClient(ctx, &cfg)
 
 	// ==========================================================================
