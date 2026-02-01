@@ -3,6 +3,9 @@ package events
 import (
 	"context"
 	"errors"
+	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/pitabwire/util"
@@ -11,6 +14,36 @@ import (
 	"github.com/antinvestor/builder/apps/worker/service/repository"
 	"github.com/antinvestor/builder/internal/events"
 )
+
+// maxBranchNameLength is the maximum length for feature branch names.
+const maxBranchNameLength = 50
+
+// shortIDLength is the length of the short execution ID suffix.
+const shortIDLength = 8
+
+// slugifyRegexp matches characters that should be replaced in branch names.
+var slugifyRegexp = regexp.MustCompile(`[^a-z0-9]+`)
+
+// generateFeatureBranchName creates a feature branch name from the title.
+func generateFeatureBranchName(title string, execID events.ExecutionID) string {
+	// Convert to lowercase and replace non-alphanumeric with hyphens
+	slug := slugifyRegexp.ReplaceAllString(strings.ToLower(title), "-")
+	slug = strings.Trim(slug, "-")
+
+	// Truncate if too long
+	if len(slug) > maxBranchNameLength {
+		slug = slug[:maxBranchNameLength]
+		slug = strings.TrimRight(slug, "-")
+	}
+
+	// Add execution ID suffix for uniqueness
+	shortID := execID.String()
+	if len(shortID) > shortIDLength {
+		shortID = shortID[:shortIDLength]
+	}
+
+	return fmt.Sprintf("feature/%s-%s", slug, shortID)
+}
 
 // Emitter emits events.
 type Emitter interface {
@@ -73,7 +106,8 @@ func (h *RepositoryCheckoutEvent) Execute(ctx context.Context, payload any) erro
 		return errors.New("invalid payload type: expected *FeatureExecutionInitializedPayload")
 	}
 
-	execID := events.NewExecutionID()
+	// Use execution ID from the request (created by queue handler)
+	execID := request.ExecutionID
 
 	// Emit checkout started
 	if err := h.eventsMan.Emit(ctx, string(events.RepositoryCheckoutStarted), &events.RepositoryCheckoutStartedPayload{
@@ -108,16 +142,26 @@ func (h *RepositoryCheckoutEvent) Execute(ctx context.Context, payload any) erro
 		return err
 	}
 
-	// Emit completion
+	// Generate feature branch name
+	featureBranch := request.Repository.FeatureBranchName
+	if featureBranch == "" {
+		featureBranch = generateFeatureBranchName(request.Spec.Title, execID)
+	}
+
+	// Emit completion with feature spec for downstream handlers
 	return h.eventsMan.Emit(
 		ctx,
 		string(events.RepositoryCheckoutCompleted),
 		&events.RepositoryCheckoutCompletedPayload{
-			WorkspacePath: result.WorkspacePath,
-			HeadCommitSHA: result.CommitSHA,
-			BranchName:    result.Branch,
-			DurationMS:    result.CheckoutTimeMS,
-			CompletedAt:   time.Now(),
+			ExecutionID:       execID,
+			WorkspacePath:     result.WorkspacePath,
+			HeadCommitSHA:     result.CommitSHA,
+			BranchName:        result.Branch,
+			FeatureBranchName: featureBranch,
+			Spec:              request.Spec,
+			RepositoryURL:     request.Repository.RemoteURL,
+			DurationMS:        result.CheckoutTimeMS,
+			CompletedAt:       time.Now(),
 		},
 	)
 }
@@ -195,36 +239,351 @@ func (h *PatchGenerationEvent) Validate(_ context.Context, _ any) error {
 	return nil
 }
 
+// patchStats tracks file change statistics.
+type patchStats struct {
+	filesCreated  int
+	filesModified int
+	filesDeleted  int
+	linesAdded    int
+	linesRemoved  int
+}
+
 // Execute processes patch generation.
-func (h *PatchGenerationEvent) Execute(ctx context.Context, _ any) error {
-	// Emit patch generation started
-	if err := h.eventsMan.Emit(ctx, string(events.PatchGenerationStarted), &events.PatchGenerationStartedPayload{
-		TotalSteps: 1,
-		StartedAt:  time.Now(),
-	}); err != nil {
+func (h *PatchGenerationEvent) Execute(ctx context.Context, payload any) error {
+	log := util.Log(ctx)
+
+	request, ok := payload.(*events.RepositoryCheckoutCompletedPayload)
+	if !ok {
+		return errors.New("invalid payload type: expected *RepositoryCheckoutCompletedPayload")
+	}
+
+	execID := request.ExecutionID
+	startTime := time.Now()
+
+	log.Info("starting patch generation",
+		"execution_id", execID.String(),
+		"feature_branch", request.FeatureBranchName,
+	)
+
+	// Phase 1: Setup - emit started, create branch
+	if err := h.setupPatchGeneration(ctx, execID, request, startTime); err != nil {
 		return err
 	}
 
-	// Generate patches using BAML/LLM
-	resp, err := h.bamlClient.GeneratePatch(ctx, &GeneratePatchRequest{
-		ExecutionID: events.NewExecutionID(),
-	})
+	// Phase 2: Generate and apply patches
+	resp, stats, err := h.generateAndApplyPatches(ctx, execID, request)
 	if err != nil {
 		return err
 	}
 
+	// Phase 3: Commit and push
+	commitInfo, err := h.commitAndPush(ctx, execID, request, resp)
+	if err != nil {
+		return err
+	}
+
+	// Phase 4: Emit completion events
+	return h.emitCompletionEvents(ctx, execID, request, resp, stats, commitInfo, startTime)
+}
+
+// setupPatchGeneration handles initial setup for patch generation.
+func (h *PatchGenerationEvent) setupPatchGeneration(
+	ctx context.Context,
+	execID events.ExecutionID,
+	request *events.RepositoryCheckoutCompletedPayload,
+	startTime time.Time,
+) error {
+	log := util.Log(ctx)
+
+	// Emit patch generation started
+	if err := h.eventsMan.Emit(ctx, string(events.PatchGenerationStarted), &events.PatchGenerationStartedPayload{
+		TotalSteps: 1,
+		StartedAt:  startTime,
+	}); err != nil {
+		return err
+	}
+
+	// Create feature branch before making changes
+	if err := h.repoService.CreateBranch(ctx, execID, request.FeatureBranchName); err != nil {
+		return h.emitGenerationFailure(ctx, execID, "branch_creation", err)
+	}
+
+	// Emit branch created event
+	if err := h.eventsMan.Emit(ctx, string(events.GitBranchCreated), &events.GitBranchCreatedPayload{
+		BranchName:    request.FeatureBranchName,
+		BaseBranch:    request.BranchName,
+		BaseCommitSHA: request.HeadCommitSHA,
+		CreatedAt:     time.Now(),
+	}); err != nil {
+		log.Warn("failed to emit branch created event", "error", err)
+	}
+
+	return nil
+}
+
+// generateAndApplyPatches generates patches using LLM and applies them.
+func (h *PatchGenerationEvent) generateAndApplyPatches(
+	ctx context.Context,
+	execID events.ExecutionID,
+	request *events.RepositoryCheckoutCompletedPayload,
+) (*GeneratePatchResponse, *patchStats, error) {
+	log := util.Log(ctx)
+
+	// Get repository structure for LLM context
+	repoContext, err := h.repoService.GetProjectStructure(ctx, execID)
+	if err != nil {
+		log.Warn("failed to get project structure", "error", err)
+		repoContext = ""
+	}
+
+	// Generate patches using BAML/LLM
+	resp, err := h.bamlClient.GeneratePatch(ctx, &GeneratePatchRequest{
+		ExecutionID:       execID,
+		Specification:     request.Spec,
+		WorkspacePath:     request.WorkspacePath,
+		RepositoryContext: repoContext,
+		IterationNumber:   1,
+	})
+	if err != nil {
+		return nil, nil, h.emitGenerationFailure(ctx, execID, "llm_generation", err)
+	}
+
+	// Apply patches and collect stats
+	stats, err := h.applyPatches(ctx, execID, resp.Patches)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return resp, stats, nil
+}
+
+// applyPatches applies patches and returns statistics.
+func (h *PatchGenerationEvent) applyPatches(
+	ctx context.Context,
+	execID events.ExecutionID,
+	patches []Patch,
+) (*patchStats, error) {
+	log := util.Log(ctx)
+	stats := &patchStats{}
+
+	for _, patch := range patches {
+		eventsPatch := &events.Patch{
+			FilePath:   patch.FilePath,
+			Action:     patch.Action,
+			OldContent: patch.OldContent,
+			NewContent: patch.NewContent,
+		}
+
+		if applyErr := h.repoService.ApplyPatch(ctx, execID, eventsPatch); applyErr != nil {
+			log.WithError(applyErr).Error("failed to apply patch", "file", patch.FilePath)
+			return nil, h.emitGenerationFailure(ctx, execID, "patch_application", applyErr)
+		}
+
+		h.updatePatchStats(stats, &patch)
+	}
+
+	return stats, nil
+}
+
+// updatePatchStats updates statistics based on patch action.
+func (h *PatchGenerationEvent) updatePatchStats(stats *patchStats, patch *Patch) {
+	switch patch.Action {
+	case events.FileActionCreate:
+		stats.filesCreated++
+		stats.linesAdded += countLines(patch.NewContent)
+	case events.FileActionModify:
+		stats.filesModified++
+		stats.linesAdded += countLines(patch.NewContent)
+		stats.linesRemoved += countLines(patch.OldContent)
+	case events.FileActionDelete:
+		stats.filesDeleted++
+		stats.linesRemoved += countLines(patch.OldContent)
+	case events.FileActionRename:
+		stats.filesModified++
+	}
+}
+
+// commitAndPush creates commit and pushes to remote.
+func (h *PatchGenerationEvent) commitAndPush(
+	ctx context.Context,
+	execID events.ExecutionID,
+	request *events.RepositoryCheckoutCompletedPayload,
+	resp *GeneratePatchResponse,
+) (*events.CommitInfo, error) {
+	log := util.Log(ctx)
+
+	commitMessage := resp.CommitMessage
+	if commitMessage == "" {
+		commitMessage = fmt.Sprintf("feat: %s\n\nImplemented via automated feature builder.", request.Spec.Title)
+	}
+
+	commitInfo, err := h.repoService.CreateCommit(ctx, execID, commitMessage)
+	if err != nil {
+		return nil, h.emitGenerationFailure(ctx, execID, "commit_creation", err)
+	}
+
+	// Emit commit created event
+	if emitErr := h.eventsMan.Emit(ctx, string(events.GitCommitCreated), &events.GitCommitCreatedPayload{
+		Commit: *commitInfo,
+	}); emitErr != nil {
+		log.Warn("failed to emit commit created event", "error", emitErr)
+	}
+
+	// Push the branch
+	if pushErr := h.pushBranch(ctx, execID, request, commitInfo); pushErr != nil {
+		return nil, pushErr
+	}
+
+	return commitInfo, nil
+}
+
+// pushBranch pushes the branch to remote with event emission.
+func (h *PatchGenerationEvent) pushBranch(
+	ctx context.Context,
+	execID events.ExecutionID,
+	request *events.RepositoryCheckoutCompletedPayload,
+	commitInfo *events.CommitInfo,
+) error {
+	log := util.Log(ctx)
+
+	if err := h.eventsMan.Emit(ctx, string(events.GitPushStarted), &events.GitPushStartedPayload{
+		BranchName:     request.FeatureBranchName,
+		RemoteName:     "origin",
+		RemoteURL:      request.RepositoryURL,
+		LocalCommitSHA: commitInfo.SHA,
+		CommitCount:    1,
+		StartedAt:      time.Now(),
+	}); err != nil {
+		log.Warn("failed to emit push started event", "error", err)
+	}
+
+	if err := h.repoService.PushBranch(ctx, execID, request.FeatureBranchName); err != nil {
+		h.emitPushFailure(ctx, request.FeatureBranchName, err)
+		return h.emitGenerationFailure(ctx, execID, "push", err)
+	}
+
+	return nil
+}
+
+// emitPushFailure emits a push failed event.
+func (h *PatchGenerationEvent) emitPushFailure(ctx context.Context, branchName string, err error) {
+	log := util.Log(ctx)
+	pushFailErr := h.eventsMan.Emit(ctx, string(events.GitPushFailed), &events.GitPushFailedPayload{
+		BranchName:   branchName,
+		ErrorCode:    events.GitPushErrorNetwork,
+		ErrorMessage: err.Error(),
+		Retryable:    true,
+		FailedAt:     time.Now(),
+	})
+	if pushFailErr != nil {
+		log.Warn("failed to emit push failed event", "error", pushFailErr)
+	}
+}
+
+// emitCompletionEvents emits all completion events.
+func (h *PatchGenerationEvent) emitCompletionEvents(
+	ctx context.Context,
+	execID events.ExecutionID,
+	request *events.RepositoryCheckoutCompletedPayload,
+	resp *GeneratePatchResponse,
+	stats *patchStats,
+	commitInfo *events.CommitInfo,
+	startTime time.Time,
+) error {
+	log := util.Log(ctx)
+	durationMS := time.Since(startTime).Milliseconds()
+
+	// Emit push completed
+	if err := h.eventsMan.Emit(ctx, string(events.GitPushCompleted), &events.GitPushCompletedPayload{
+		BranchName:      request.FeatureBranchName,
+		RemoteRef:       fmt.Sprintf("refs/heads/%s", request.FeatureBranchName),
+		RemoteCommitSHA: commitInfo.SHA,
+		CommitsPushed:   1,
+		DurationMS:      durationMS,
+		CompletedAt:     time.Now(),
+	}); err != nil {
+		log.Warn("failed to emit push completed event", "error", err)
+	}
+
 	// Emit patch generation completed
-	return h.eventsMan.Emit(
-		ctx,
-		string(events.PatchGenerationCompleted),
-		&events.PatchGenerationCompletedPayload{
-			TotalSteps:     1,
-			StepsCompleted: 1,
-			TotalLLMTokens: resp.TokensUsed,
-			FinalCommitSHA: "stub-commit",
-			CompletedAt:    time.Now(),
+	if err := h.eventsMan.Emit(ctx, string(events.PatchGenerationCompleted), &events.PatchGenerationCompletedPayload{
+		ExecutionID:       execID,
+		TotalSteps:        1,
+		StepsCompleted:    1,
+		TotalFileChanges:  len(resp.Patches),
+		FilesCreated:      stats.filesCreated,
+		FilesModified:     stats.filesModified,
+		FilesDeleted:      stats.filesDeleted,
+		TotalLinesAdded:   stats.linesAdded,
+		TotalLinesRemoved: stats.linesRemoved,
+		Commits:           []events.CommitInfo{*commitInfo},
+		FinalCommitSHA:    commitInfo.SHA,
+		TotalDurationMS:   durationMS,
+		TotalLLMTokens:    resp.TokensUsed,
+		CompletedAt:       time.Now(),
+	}); err != nil {
+		return err
+	}
+
+	// Emit feature delivered
+	return h.eventsMan.Emit(ctx, string(events.FeatureDelivered), &events.FeatureDeliveredPayload{
+		BranchName:    request.FeatureBranchName,
+		RemoteRef:     fmt.Sprintf("refs/heads/%s", request.FeatureBranchName),
+		HeadCommitSHA: commitInfo.SHA,
+		Summary: events.DeliverySummary{
+			Title:       request.Spec.Title,
+			Description: request.Spec.Description,
+			Execution: events.ExecutionSummary{
+				StepsCompleted:    1,
+				FilesCreated:      stats.filesCreated,
+				FilesModified:     stats.filesModified,
+				FilesDeleted:      stats.filesDeleted,
+				TotalLinesAdded:   stats.linesAdded,
+				TotalLinesRemoved: stats.linesRemoved,
+				CommitsCreated:    1,
+				TotalDurationMS:   durationMS,
+				LLMTokensUsed:     resp.TokensUsed,
+			},
 		},
-	)
+	})
+}
+
+// emitGenerationFailure emits a patch generation step failed event.
+func (h *PatchGenerationEvent) emitGenerationFailure(
+	ctx context.Context,
+	_ events.ExecutionID, // execID reserved for future use
+	phase string,
+	err error,
+) error {
+	log := util.Log(ctx)
+
+	emitErr := h.eventsMan.Emit(ctx, string(events.PatchGenerationStepFailed), &events.PatchGenerationStepFailedPayload{
+		StepNumber:    1,
+		ErrorCode:     phase,
+		ErrorMessage:  err.Error(),
+		ErrorCategory: events.StepErrorCategoryLLM,
+		Retryable:     true,
+		FailedAt:      time.Now(),
+	})
+	if emitErr != nil {
+		log.Warn("failed to emit step failure event", "error", emitErr)
+	}
+
+	return fmt.Errorf("%s failed: %w", phase, err)
+}
+
+// countLines counts the number of lines in a string.
+func countLines(s string) int {
+	if s == "" {
+		return 0
+	}
+	count := 1
+	for _, c := range s {
+		if c == '\n' {
+			count++
+		}
+	}
+	return count
 }
 
 // =============================================================================

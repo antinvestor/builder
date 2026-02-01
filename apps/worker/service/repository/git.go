@@ -356,7 +356,7 @@ func (s *Service) PushBranch(
 ) error {
 	workspacePath := s.GetWorkspacePath(executionID)
 
-	pushCmd := exec.CommandContext(ctx, "git", "push", "origin", branchName)
+	pushCmd := exec.CommandContext(ctx, "git", "push", "-u", "origin", branchName)
 	pushCmd.Dir = workspacePath
 	pushCmd.Env = s.buildGitEnv()
 
@@ -365,6 +365,61 @@ func (s *Service) PushBranch(
 	}
 
 	return nil
+}
+
+// CreateBranch creates a new branch in the workspace and switches to it.
+func (s *Service) CreateBranch(
+	ctx context.Context,
+	executionID events.ExecutionID,
+	branchName string,
+) error {
+	workspacePath := s.GetWorkspacePath(executionID)
+
+	// Create and checkout the new branch
+	checkoutCmd := exec.CommandContext(ctx, "git", "checkout", "-b", branchName)
+	checkoutCmd.Dir = workspacePath
+
+	if output, err := checkoutCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git checkout -b failed: %w: %s", err, string(output))
+	}
+
+	return nil
+}
+
+// GetCurrentBranch returns the current branch name.
+func (s *Service) GetCurrentBranch(
+	ctx context.Context,
+	executionID events.ExecutionID,
+) (string, error) {
+	workspacePath := s.GetWorkspacePath(executionID)
+
+	branchCmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
+	branchCmd.Dir = workspacePath
+
+	output, err := branchCmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("get current branch: %w", err)
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}
+
+// GetHeadCommitSHA returns the current HEAD commit SHA.
+func (s *Service) GetHeadCommitSHA(
+	ctx context.Context,
+	executionID events.ExecutionID,
+) (string, error) {
+	workspacePath := s.GetWorkspacePath(executionID)
+
+	shaCmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
+	shaCmd.Dir = workspacePath
+
+	output, err := shaCmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("get head commit SHA: %w", err)
+	}
+
+	return strings.TrimSpace(string(output)), nil
 }
 
 // buildGitEnv builds environment variables for git commands.

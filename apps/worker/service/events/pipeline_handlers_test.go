@@ -607,3 +607,181 @@ func TestConvertToIterationIssues_Empty(t *testing.T) {
 	result := convertToIterationIssues(nil)
 	assert.Empty(t, result)
 }
+
+// =============================================================================
+// Helper Function Tests for handlers.go
+// =============================================================================
+
+func TestGenerateFeatureBranchName(t *testing.T) {
+	tests := []struct {
+		name     string
+		title    string
+		wantPfx  string
+		maxLen   int
+	}{
+		{
+			name:    "simple title",
+			title:   "Add user login",
+			wantPfx: "feature/add-user-login-",
+		},
+		{
+			name:    "title with special characters",
+			title:   "Fix bug #123: Handle NULL values",
+			wantPfx: "feature/fix-bug-123-handle-null-values-",
+		},
+		{
+			name:    "very long title should be truncated",
+			title:   "This is a very long title that should be truncated to fit within the maximum branch name length",
+			wantPfx: "feature/this-is-a-very-long-title-that-should-be-",
+			maxLen:  70, // feature/ (8) + slug (50) + - (1) + shortID (8) = 67 max
+		},
+		{
+			name:    "title with numbers",
+			title:   "Version 2.0 Release",
+			wantPfx: "feature/version-2-0-release-",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			execID := events.NewExecutionID()
+			result := generateFeatureBranchName(tt.title, execID)
+
+			assert.True(t, len(result) > 0, "branch name should not be empty")
+			assert.True(t, len(result) <= 70, "branch name should not exceed 70 characters")
+			assert.Contains(t, result, tt.wantPfx, "branch name should start with expected prefix")
+			assert.Contains(t, result, execID.String()[:shortIDLength], "branch name should contain short execution ID")
+		})
+	}
+}
+
+func TestCountLines(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  int
+	}{
+		{
+			name:  "empty string",
+			input: "",
+			want:  0,
+		},
+		{
+			name:  "single line no newline",
+			input: "hello",
+			want:  1,
+		},
+		{
+			name:  "single line with newline",
+			input: "hello\n",
+			want:  2,
+		},
+		{
+			name:  "multiple lines",
+			input: "line1\nline2\nline3",
+			want:  3,
+		},
+		{
+			name:  "multiple lines with trailing newline",
+			input: "line1\nline2\nline3\n",
+			want:  4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := countLines(tt.input)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+func TestPatchStats_UpdatePatchStats(t *testing.T) {
+	handler := &PatchGenerationEvent{}
+
+	tests := []struct {
+		name   string
+		patch  *Patch
+		verify func(t *testing.T, stats *patchStats)
+	}{
+		{
+			name: "create action",
+			patch: &Patch{
+				Action:     events.FileActionCreate,
+				NewContent: "line1\nline2\n",
+			},
+			verify: func(t *testing.T, stats *patchStats) {
+				assert.Equal(t, 1, stats.filesCreated)
+				assert.Equal(t, 3, stats.linesAdded)
+			},
+		},
+		{
+			name: "modify action",
+			patch: &Patch{
+				Action:     events.FileActionModify,
+				OldContent: "old\n",
+				NewContent: "new1\nnew2\n",
+			},
+			verify: func(t *testing.T, stats *patchStats) {
+				assert.Equal(t, 1, stats.filesModified)
+				assert.Equal(t, 3, stats.linesAdded)
+				assert.Equal(t, 2, stats.linesRemoved)
+			},
+		},
+		{
+			name: "delete action",
+			patch: &Patch{
+				Action:     events.FileActionDelete,
+				OldContent: "deleted content\n",
+			},
+			verify: func(t *testing.T, stats *patchStats) {
+				assert.Equal(t, 1, stats.filesDeleted)
+				assert.Equal(t, 2, stats.linesRemoved)
+			},
+		},
+		{
+			name: "rename action",
+			patch: &Patch{
+				Action: events.FileActionRename,
+			},
+			verify: func(t *testing.T, stats *patchStats) {
+				assert.Equal(t, 1, stats.filesModified)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stats := &patchStats{}
+			handler.updatePatchStats(stats, tt.patch)
+			tt.verify(t, stats)
+		})
+	}
+}
+
+func TestPatchGenerationEvent_Name(t *testing.T) {
+	handler := NewPatchGenerationEvent(nil, nil, nil, nil)
+	assert.Equal(t, string(events.RepositoryCheckoutCompleted), handler.Name())
+}
+
+func TestPatchGenerationEvent_PayloadType(t *testing.T) {
+	handler := NewPatchGenerationEvent(nil, nil, nil, nil)
+	assert.IsType(t, &events.RepositoryCheckoutCompletedPayload{}, handler.PayloadType())
+}
+
+func TestPatchGenerationEvent_Execute_InvalidPayload(t *testing.T) {
+	handler := NewPatchGenerationEvent(nil, nil, nil, nil)
+	err := handler.Execute(context.Background(), "invalid")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid payload type")
+}
+
+func TestRepositoryCheckoutEvent_Name(t *testing.T) {
+	handler := NewRepositoryCheckoutEvent(nil, nil, nil)
+	assert.Equal(t, string(events.FeatureExecutionInitialized), handler.Name())
+}
+
+func TestRepositoryCheckoutEvent_PayloadType(t *testing.T) {
+	handler := NewRepositoryCheckoutEvent(nil, nil, nil)
+	assert.IsType(t, &events.FeatureExecutionInitializedPayload{}, handler.PayloadType())
+}
