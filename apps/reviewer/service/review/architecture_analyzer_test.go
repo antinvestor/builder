@@ -474,7 +474,7 @@ func TestPatternArchitectureAnalyzer_PatternViolations(t *testing.T) {
 			assessment, err := analyzer.Analyze(context.Background(), req)
 			require.NoError(t, err)
 
-			require.GreaterOrEqual(t, len(assessment.PatternViolations), tt.wantViolations,
+			require.Equal(t, tt.wantViolations, len(assessment.PatternViolations),
 				"pattern violations count mismatch")
 
 			if len(tt.wantTypes) > 0 {

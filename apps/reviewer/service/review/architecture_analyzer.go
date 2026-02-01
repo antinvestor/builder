@@ -833,6 +833,10 @@ func detectLargeFunctions(content, language string) []string {
 			startPos := match[0]
 
 			// Find end of function (simple heuristic)
+			// Note: This is a simplified approach that assumes functions end where the next
+			// function begins. For more accurate detection, use Go's AST parser.
+			// This may overcount lines for the last function or if there are type definitions
+			// between functions.
 			var endPos int
 			if i+1 < len(matches) {
 				endPos = matches[i+1][0]

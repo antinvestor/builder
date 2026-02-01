@@ -482,7 +482,9 @@ func (a *PatternSecurityAnalyzer) Analyze(ctx context.Context, req *SecurityAnal
 		for _, pattern := range patterns {
 			if pattern.PatternType == events.InsecurePatternSQLInjection ||
 				pattern.PatternType == events.InsecurePatternCommandInjection ||
-				pattern.PatternType == events.InsecurePatternInsecureDeserialize {
+				pattern.PatternType == events.InsecurePatternInsecureDeserialize ||
+				pattern.PatternType == events.InsecurePatternSSRF ||
+				pattern.PatternType == events.InsecurePatternPathTraversal {
 				vuln := events.Vulnerability{
 					ID:          generateVulnID(filePath, pattern.LineStart),
 					Type:        patternTypeToVulnType(pattern.PatternType),
@@ -619,11 +621,13 @@ func (a *PatternSecurityAnalyzer) calculateSecurityScore(assessment *events.Secu
 		switch {
 		case pattern.PatternType == events.InsecurePatternSQLInjection ||
 			pattern.PatternType == events.InsecurePatternCommandInjection ||
-			pattern.PatternType == events.InsecurePatternInsecureDeserialize:
-			score -= 25
-		case pattern.PatternType == events.InsecurePatternXSS ||
-			pattern.PatternType == events.InsecurePatternPathTraversal ||
-			pattern.PatternType == events.InsecurePatternSSRF:
+			pattern.PatternType == events.InsecurePatternInsecureDeserialize ||
+			pattern.PatternType == events.InsecurePatternSSRF ||
+			pattern.PatternType == events.InsecurePatternPathTraversal:
+			// These are promoted to vulnerabilities and scored separately.
+			// Skip to avoid double-penalty.
+			continue
+		case pattern.PatternType == events.InsecurePatternXSS:
 			score -= 15
 		case pattern.PatternType == events.InsecurePatternHardcodedCreds ||
 			pattern.PatternType == events.InsecurePatternInsecureTLS:

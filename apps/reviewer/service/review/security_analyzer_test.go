@@ -39,7 +39,7 @@ func TestPatternSecurityAnalyzer_SQLInjection(t *testing.T) {
 import "fmt"
 
 func GetUser(id string) {
-	query := "SELECT * FROM users WHERE id = '" + id + "'"
+	query := fmt.Sprintf("SELECT * FROM users WHERE id = '%s'", id)
 	db.Query(query)
 }
 `,
