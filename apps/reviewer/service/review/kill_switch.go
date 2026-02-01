@@ -61,15 +61,18 @@ type PersistentKillSwitchService struct {
 	activationHistory []KillSwitchActivation
 }
 
+// Minimum number of requests needed before checking error rate threshold.
+const minRequestsForErrorRateCheck = 10
+
 // KillSwitchActivation records an activation event.
 type KillSwitchActivation struct {
-	Timestamp   time.Time               `json:"timestamp"`
-	Action      string                  `json:"action"` // "activate" or "deactivate"
-	Scope       events.KillSwitchScope  `json:"scope"`
-	ScopeID     string                  `json:"scope_id,omitempty"`
-	Reason      events.KillSwitchReason `json:"reason,omitempty"`
-	ActivatedBy string                  `json:"activated_by"`
-	Details     string                  `json:"details,omitempty"`
+	Timestamp time.Time               `json:"timestamp"`
+	Action    string                  `json:"action"` // "activate" or "deactivate"
+	Scope     events.KillSwitchScope  `json:"scope"`
+	ScopeID   string                  `json:"scope_id,omitempty"`
+	Reason    events.KillSwitchReason `json:"reason,omitempty"`
+	Actor     string                  `json:"actor"`
+	Details   string                  `json:"details,omitempty"`
 }
 
 // NewPersistentKillSwitchService creates a new persistent kill switch service.
@@ -181,6 +184,7 @@ func (s *PersistentKillSwitchService) ActivateGlobal(
 	activatedBy, details string,
 ) error {
 	log := util.Log(ctx)
+	now := time.Now()
 
 	s.mu.Lock()
 	s.globalState = KillSwitchState{
@@ -188,17 +192,17 @@ func (s *PersistentKillSwitchService) ActivateGlobal(
 		Reason:      reason,
 		ActivatedBy: activatedBy,
 		Details:     details,
-		ActivatedAt: time.Now(),
+		ActivatedAt: now,
 	}
 
 	// Record in history
 	s.activationHistory = append(s.activationHistory, KillSwitchActivation{
-		Timestamp:   time.Now(),
-		Action:      "activate",
-		Scope:       events.KillSwitchScopeGlobal,
-		Reason:      reason,
-		ActivatedBy: activatedBy,
-		Details:     details,
+		Timestamp: now,
+		Action:    "activate",
+		Scope:     events.KillSwitchScopeGlobal,
+		Reason:    reason,
+		Actor:     activatedBy,
+		Details:   details,
 	})
 	s.mu.Unlock()
 
@@ -210,13 +214,15 @@ func (s *PersistentKillSwitchService) ActivateGlobal(
 
 	// Emit event
 	if s.eventsMan != nil {
-		_ = s.eventsMan.Emit(ctx, "feature.kill_switch.activated", &events.KillSwitchActivatedPayload{
+		if err := s.eventsMan.Emit(ctx, "feature.kill_switch.activated", &events.KillSwitchActivatedPayload{
 			Scope:       events.KillSwitchScopeGlobal,
 			Reason:      reason,
 			ActivatedBy: activatedBy,
 			Details:     details,
-			ActivatedAt: time.Now(),
-		})
+			ActivatedAt: now,
+		}); err != nil {
+			log.Warn("failed to emit kill_switch.activated event", "err", err)
+		}
 	}
 
 	return nil
@@ -228,21 +234,22 @@ func (s *PersistentKillSwitchService) DeactivateGlobal(
 	deactivatedBy, reason string,
 ) error {
 	log := util.Log(ctx)
+	now := time.Now()
 
 	s.mu.Lock()
 	s.globalState = KillSwitchState{
 		Active:        false,
 		DeactivatedBy: deactivatedBy,
-		DeactivatedAt: time.Now(),
+		DeactivatedAt: now,
 	}
 
 	// Record in history
 	s.activationHistory = append(s.activationHistory, KillSwitchActivation{
-		Timestamp:   time.Now(),
-		Action:      "deactivate",
-		Scope:       events.KillSwitchScopeGlobal,
-		ActivatedBy: deactivatedBy,
-		Details:     reason,
+		Timestamp: now,
+		Action:    "deactivate",
+		Scope:     events.KillSwitchScopeGlobal,
+		Actor:     deactivatedBy,
+		Details:   reason,
 	})
 	s.mu.Unlock()
 
@@ -253,12 +260,14 @@ func (s *PersistentKillSwitchService) DeactivateGlobal(
 
 	// Emit event
 	if s.eventsMan != nil {
-		_ = s.eventsMan.Emit(ctx, "feature.kill_switch.deactivated", &events.KillSwitchDeactivatedPayload{
+		if err := s.eventsMan.Emit(ctx, "feature.kill_switch.deactivated", &events.KillSwitchDeactivatedPayload{
 			Scope:         events.KillSwitchScopeGlobal,
 			DeactivatedBy: deactivatedBy,
 			Reason:        reason,
-			DeactivatedAt: time.Now(),
-		})
+			DeactivatedAt: now,
+		}); err != nil {
+			log.Warn("failed to emit kill_switch.deactivated event", "err", err)
+		}
 	}
 
 	return nil
@@ -276,6 +285,7 @@ func (s *PersistentKillSwitchService) ActivateForRepository(
 	activatedBy, details string,
 ) error {
 	log := util.Log(ctx)
+	now := time.Now()
 
 	s.mu.Lock()
 	s.repositoryStates[repositoryID] = KillSwitchState{
@@ -283,18 +293,18 @@ func (s *PersistentKillSwitchService) ActivateForRepository(
 		Reason:      reason,
 		ActivatedBy: activatedBy,
 		Details:     details,
-		ActivatedAt: time.Now(),
+		ActivatedAt: now,
 	}
 
 	// Record in history
 	s.activationHistory = append(s.activationHistory, KillSwitchActivation{
-		Timestamp:   time.Now(),
-		Action:      "activate",
-		Scope:       events.KillSwitchScopeRepository,
-		ScopeID:     repositoryID,
-		Reason:      reason,
-		ActivatedBy: activatedBy,
-		Details:     details,
+		Timestamp: now,
+		Action:    "activate",
+		Scope:     events.KillSwitchScopeRepository,
+		ScopeID:   repositoryID,
+		Reason:    reason,
+		Actor:     activatedBy,
+		Details:   details,
 	})
 	s.mu.Unlock()
 
@@ -306,13 +316,15 @@ func (s *PersistentKillSwitchService) ActivateForRepository(
 
 	// Emit event (note: API doesn't have RepositoryID field, so we put it in Details)
 	if s.eventsMan != nil {
-		_ = s.eventsMan.Emit(ctx, "feature.kill_switch.activated", &events.KillSwitchActivatedPayload{
+		if err := s.eventsMan.Emit(ctx, "feature.kill_switch.activated", &events.KillSwitchActivatedPayload{
 			Scope:       events.KillSwitchScopeRepository,
 			Reason:      reason,
 			ActivatedBy: activatedBy,
 			Details:     "repository:" + repositoryID + "; " + details,
-			ActivatedAt: time.Now(),
-		})
+			ActivatedAt: now,
+		}); err != nil {
+			log.Warn("failed to emit kill_switch.activated event", "err", err)
+		}
 	}
 
 	return nil
@@ -325,18 +337,19 @@ func (s *PersistentKillSwitchService) DeactivateForRepository(
 	deactivatedBy, reasonStr string,
 ) error {
 	log := util.Log(ctx)
+	now := time.Now()
 
 	s.mu.Lock()
 	delete(s.repositoryStates, repositoryID)
 
 	// Record in history
 	s.activationHistory = append(s.activationHistory, KillSwitchActivation{
-		Timestamp:   time.Now(),
-		Action:      "deactivate",
-		Scope:       events.KillSwitchScopeRepository,
-		ScopeID:     repositoryID,
-		ActivatedBy: deactivatedBy,
-		Details:     reasonStr,
+		Timestamp: now,
+		Action:    "deactivate",
+		Scope:     events.KillSwitchScopeRepository,
+		ScopeID:   repositoryID,
+		Actor:     deactivatedBy,
+		Details:   reasonStr,
 	})
 	s.mu.Unlock()
 
@@ -347,12 +360,14 @@ func (s *PersistentKillSwitchService) DeactivateForRepository(
 
 	// Emit event (note: API doesn't have RepositoryID field, so we put it in Reason)
 	if s.eventsMan != nil {
-		_ = s.eventsMan.Emit(ctx, "feature.kill_switch.deactivated", &events.KillSwitchDeactivatedPayload{
+		if err := s.eventsMan.Emit(ctx, "feature.kill_switch.deactivated", &events.KillSwitchDeactivatedPayload{
 			Scope:         events.KillSwitchScopeRepository,
 			DeactivatedBy: deactivatedBy,
 			Reason:        "repository:" + repositoryID + "; " + reasonStr,
-			DeactivatedAt: time.Now(),
-		})
+			DeactivatedAt: now,
+		}); err != nil {
+			log.Warn("failed to emit kill_switch.deactivated event", "err", err)
+		}
 	}
 
 	return nil
@@ -366,6 +381,7 @@ func (s *PersistentKillSwitchService) ActivateForExecution(
 	activatedBy, details string,
 ) error {
 	log := util.Log(ctx)
+	now := time.Now()
 	execIDStr := executionID.String()
 
 	s.mu.Lock()
@@ -374,18 +390,18 @@ func (s *PersistentKillSwitchService) ActivateForExecution(
 		Reason:      reason,
 		ActivatedBy: activatedBy,
 		Details:     details,
-		ActivatedAt: time.Now(),
+		ActivatedAt: now,
 	}
 
 	// Record in history
 	s.activationHistory = append(s.activationHistory, KillSwitchActivation{
-		Timestamp:   time.Now(),
-		Action:      "activate",
-		Scope:       events.KillSwitchScopeFeature,
-		ScopeID:     execIDStr,
-		Reason:      reason,
-		ActivatedBy: activatedBy,
-		Details:     details,
+		Timestamp: now,
+		Action:    "activate",
+		Scope:     events.KillSwitchScopeFeature,
+		ScopeID:   execIDStr,
+		Reason:    reason,
+		Actor:     activatedBy,
+		Details:   details,
 	})
 	s.mu.Unlock()
 
@@ -397,14 +413,16 @@ func (s *PersistentKillSwitchService) ActivateForExecution(
 
 	// Emit event
 	if s.eventsMan != nil {
-		_ = s.eventsMan.Emit(ctx, "feature.kill_switch.activated", &events.KillSwitchActivatedPayload{
+		if err := s.eventsMan.Emit(ctx, "feature.kill_switch.activated", &events.KillSwitchActivatedPayload{
 			Scope:       events.KillSwitchScopeFeature,
 			ExecutionID: executionID,
 			Reason:      reason,
 			ActivatedBy: activatedBy,
 			Details:     details,
-			ActivatedAt: time.Now(),
-		})
+			ActivatedAt: now,
+		}); err != nil {
+			log.Warn("failed to emit kill_switch.activated event", "err", err)
+		}
 	}
 
 	return nil
@@ -417,6 +435,7 @@ func (s *PersistentKillSwitchService) DeactivateForExecution(
 	deactivatedBy, reason string,
 ) error {
 	log := util.Log(ctx)
+	now := time.Now()
 	execIDStr := executionID.String()
 
 	s.mu.Lock()
@@ -424,12 +443,12 @@ func (s *PersistentKillSwitchService) DeactivateForExecution(
 
 	// Record in history
 	s.activationHistory = append(s.activationHistory, KillSwitchActivation{
-		Timestamp:   time.Now(),
-		Action:      "deactivate",
-		Scope:       events.KillSwitchScopeFeature,
-		ScopeID:     execIDStr,
-		ActivatedBy: deactivatedBy,
-		Details:     reason,
+		Timestamp: now,
+		Action:    "deactivate",
+		Scope:     events.KillSwitchScopeFeature,
+		ScopeID:   execIDStr,
+		Actor:     deactivatedBy,
+		Details:   reason,
 	})
 	s.mu.Unlock()
 
@@ -440,13 +459,15 @@ func (s *PersistentKillSwitchService) DeactivateForExecution(
 
 	// Emit event
 	if s.eventsMan != nil {
-		_ = s.eventsMan.Emit(ctx, "feature.kill_switch.deactivated", &events.KillSwitchDeactivatedPayload{
+		if err := s.eventsMan.Emit(ctx, "feature.kill_switch.deactivated", &events.KillSwitchDeactivatedPayload{
 			Scope:         events.KillSwitchScopeFeature,
 			ExecutionID:   executionID,
 			DeactivatedBy: deactivatedBy,
 			Reason:        reason,
-			DeactivatedAt: time.Now(),
-		})
+			DeactivatedAt: now,
+		}); err != nil {
+			log.Warn("failed to emit kill_switch.deactivated event", "err", err)
+		}
 	}
 
 	return nil
@@ -500,7 +521,7 @@ func (s *PersistentKillSwitchService) RecordFailure(ctx context.Context) bool {
 	}
 
 	// Check error rate threshold (only if we have enough data)
-	if totalRequests >= 10 { // Minimum sample size
+	if totalRequests >= minRequestsForErrorRateCheck {
 		errorRate := float64(failedRequests) / float64(totalRequests)
 		if errorRate >= s.cfg.ErrorRateThreshold {
 			log.Warn("error rate threshold reached, activating kill switch",

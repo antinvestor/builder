@@ -113,7 +113,9 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(status)
+		if err := json.NewEncoder(w).Encode(status); err != nil {
+			http.Error(w, "failed to encode status", http.StatusInternalServerError)
+		}
 	})
 
 	// ==========================================================================

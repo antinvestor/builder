@@ -192,27 +192,29 @@ func TestPersistentKillSwitchService_RecordFailure_ConsecutiveThreshold(t *testi
 func TestPersistentKillSwitchService_RecordFailure_ErrorRateThreshold(t *testing.T) {
 	svc, _ := newTestKillSwitchService()
 	ctx := context.Background()
+	// Set high to isolate error rate trigger from consecutive failures
+	svc.cfg.MaxConsecutiveFailures = 100
 
 	// Record successes to build up sample size
 	for i := 0; i < 5; i++ {
 		svc.RecordSuccess(ctx)
 	}
 
-	// Record failures to exceed 50% error rate (need 6 failures out of 11 total = 54.5%)
+	// Record failures to just below threshold
 	var triggered bool
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 4; i++ {
 		triggered = svc.RecordFailure(ctx)
-		// Reset consecutive counter to avoid triggering that threshold
-		svc.RecordSuccess(ctx)
-		if triggered {
-			break
-		}
+		assert.False(t, triggered, "should not trigger before threshold")
 	}
 
-	// Eventually should trigger
-	metrics := svc.GetMetrics(ctx)
-	errorRate := float64(metrics.FailedRequests) / float64(metrics.TotalRequests)
-	t.Logf("Error rate: %.2f, Total: %d, Failed: %d", errorRate, metrics.TotalRequests, metrics.FailedRequests)
+	// 10th request is the 5th failure, should trigger at 50%
+	triggered = svc.RecordFailure(ctx)
+	assert.True(t, triggered, "should trigger at 50% error rate")
+
+	// Verify kill switch is active
+	active, reason, _ := svc.IsActive(ctx, events.ExecutionID{}, "")
+	assert.True(t, active)
+	assert.Equal(t, events.KillSwitchReasonSystemOverload, reason)
 }
 
 func TestPersistentKillSwitchService_RecordSuccess_ResetsConsecutive(t *testing.T) {
@@ -299,7 +301,7 @@ func TestPersistentKillSwitchService_GetActivationHistory(t *testing.T) {
 	assert.Equal(t, "activate", history[0].Action)
 	assert.Equal(t, events.KillSwitchScopeGlobal, history[0].Scope)
 	assert.Equal(t, events.KillSwitchReasonManual, history[0].Reason)
-	assert.Equal(t, "admin1", history[0].ActivatedBy)
+	assert.Equal(t, "admin1", history[0].Actor)
 
 	// Verify second event
 	assert.Equal(t, "deactivate", history[1].Action)
