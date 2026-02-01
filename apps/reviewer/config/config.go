@@ -17,15 +17,15 @@ type ReviewerConfig struct {
 	// ==========================================================================
 
 	// Review request queue (incoming from worker)
-	QueueReviewRequestName string `envDefault:"feature.review.requests" env:"QUEUE_REVIEW_REQUEST_NAME"`
+	QueueReviewRequestName string `envDefault:"feature.review.requests"       env:"QUEUE_REVIEW_REQUEST_NAME"`
 	QueueReviewRequestURI  string `envDefault:"mem://feature.review.requests" env:"QUEUE_REVIEW_REQUEST_URI"`
 
 	// Review result queue (outgoing to worker)
-	QueueReviewResultName string `envDefault:"feature.review.results" env:"QUEUE_REVIEW_RESULT_NAME"`
+	QueueReviewResultName string `envDefault:"feature.review.results"       env:"QUEUE_REVIEW_RESULT_NAME"`
 	QueueReviewResultURI  string `envDefault:"mem://feature.review.results" env:"QUEUE_REVIEW_RESULT_URI"`
 
 	// Control events queue (iteration/abort/complete commands)
-	QueueControlEventsName string `envDefault:"feature.control" env:"QUEUE_CONTROL_EVENTS_NAME"`
+	QueueControlEventsName string `envDefault:"feature.control"       env:"QUEUE_CONTROL_EVENTS_NAME"`
 	QueueControlEventsURI  string `envDefault:"mem://feature.control" env:"QUEUE_CONTROL_EVENTS_URI"`
 
 	// ==========================================================================

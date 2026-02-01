@@ -7,6 +7,11 @@ import (
 	"github.com/antinvestor/builder/internal/events"
 )
 
+// Risk score constants.
+const (
+	riskScoreMedium = 50
+)
+
 // =============================================================================
 // Interfaces
 // =============================================================================
@@ -28,7 +33,11 @@ type DecisionEngine interface {
 
 // KillSwitchService manages kill switch operations.
 type KillSwitchService interface {
-	IsActive(ctx context.Context, executionID events.ExecutionID, repositoryID string) (bool, events.KillSwitchReason, events.KillSwitchScope)
+	IsActive(
+		ctx context.Context,
+		executionID events.ExecutionID,
+		repositoryID string,
+	) (bool, events.KillSwitchReason, events.KillSwitchScope)
 	GetStatus(ctx context.Context) (*events.KillSwitchStatusPayload, error)
 	ActivateGlobal(ctx context.Context, reason events.KillSwitchReason, activatedBy, details string) error
 	DeactivateGlobal(ctx context.Context, deactivatedBy, reason string) error
@@ -82,53 +91,11 @@ type DecisionResult struct {
 }
 
 // =============================================================================
-// Stub Implementations
+// Stub Implementations (Only for components not yet implemented)
 // =============================================================================
 
-// PatternSecurityAnalyzer is a pattern-based security analyzer.
-type PatternSecurityAnalyzer struct {
-	cfg *appconfig.ReviewerConfig
-}
-
-// NewPatternSecurityAnalyzer creates a new security analyzer.
-func NewPatternSecurityAnalyzer(cfg *appconfig.ReviewerConfig) *PatternSecurityAnalyzer {
-	return &PatternSecurityAnalyzer{cfg: cfg}
-}
-
-// Analyze performs security analysis.
-func (a *PatternSecurityAnalyzer) Analyze(ctx context.Context, req *SecurityAnalysisRequest) (*events.SecurityAssessment, error) {
-	// Stub implementation - returns clean assessment
-	return &events.SecurityAssessment{
-		OverallSecurityScore:   100,
-		SecurityStatus:         events.SecurityStatusSecure,
-		VulnerabilitiesFound:   []events.Vulnerability{},
-		SecretsDetected:        []events.SecretFinding{},
-		SecurityRegressions:    []events.SecurityRegression{},
-		RequiresSecurityReview: false,
-	}, nil
-}
-
-// PatternArchitectureAnalyzer is a pattern-based architecture analyzer.
-type PatternArchitectureAnalyzer struct {
-	cfg *appconfig.ReviewerConfig
-}
-
-// NewPatternArchitectureAnalyzer creates a new architecture analyzer.
-func NewPatternArchitectureAnalyzer(cfg *appconfig.ReviewerConfig) *PatternArchitectureAnalyzer {
-	return &PatternArchitectureAnalyzer{cfg: cfg}
-}
-
-// Analyze performs architecture analysis.
-func (a *PatternArchitectureAnalyzer) Analyze(ctx context.Context, req *ArchitectureAnalysisRequest) (*events.ArchitectureAssessment, error) {
-	// Stub implementation - returns clean assessment
-	return &events.ArchitectureAssessment{
-		OverallArchitectureScore:   100,
-		ArchitectureStatus:         events.ArchitectureStatusCompliant,
-		BreakingChanges:            []events.BreakingChange{},
-		DependencyViolations:       []events.DependencyViolation{},
-		RequiresArchitectureReview: false,
-	}, nil
-}
+// Note: PatternSecurityAnalyzer is implemented in security_analyzer.go
+// Note: PatternArchitectureAnalyzer is implemented in architecture_analyzer.go
 
 // ConservativeDecisionEngine makes conservative control decisions.
 type ConservativeDecisionEngine struct {
@@ -141,7 +108,7 @@ func NewConservativeDecisionEngine(cfg *appconfig.ReviewerConfig) *ConservativeD
 }
 
 // MakeDecision makes a control decision.
-func (e *ConservativeDecisionEngine) MakeDecision(ctx context.Context, req *DecisionRequest) (*DecisionResult, error) {
+func (e *ConservativeDecisionEngine) MakeDecision(_ context.Context, req *DecisionRequest) (*DecisionResult, error) {
 	// Stub implementation - approves if no issues
 	passesSecurityReview := !req.SecurityAssessment.RequiresSecurityReview
 	passesArchitectureReview := !req.ArchitectureAssessment.RequiresArchitectureReview
@@ -162,7 +129,7 @@ func (e *ConservativeDecisionEngine) MakeDecision(ctx context.Context, req *Deci
 	return &DecisionResult{
 		Decision: events.ControlDecisionIterate,
 		RiskAssessment: events.RiskAssessment{
-			OverallRiskScore:        50,
+			OverallRiskScore:        riskScoreMedium,
 			RiskLevel:               events.RiskLevelMedium,
 			AcceptableForProduction: false,
 		},
@@ -185,24 +152,32 @@ func NewDefaultKillSwitchService(cfg *appconfig.ReviewerConfig, eventsMan Events
 }
 
 // IsActive checks if kill switch is active.
-func (s *DefaultKillSwitchService) IsActive(ctx context.Context, executionID events.ExecutionID, repositoryID string) (bool, events.KillSwitchReason, events.KillSwitchScope) {
+func (s *DefaultKillSwitchService) IsActive(
+	_ context.Context,
+	_ events.ExecutionID,
+	_ string,
+) (bool, events.KillSwitchReason, events.KillSwitchScope) {
 	// Stub - kill switch not active
 	return false, "", ""
 }
 
 // GetStatus returns kill switch status.
-func (s *DefaultKillSwitchService) GetStatus(ctx context.Context) (*events.KillSwitchStatusPayload, error) {
+func (s *DefaultKillSwitchService) GetStatus(_ context.Context) (*events.KillSwitchStatusPayload, error) {
 	return &events.KillSwitchStatusPayload{
 		GlobalActive: false,
 	}, nil
 }
 
 // ActivateGlobal activates global kill switch.
-func (s *DefaultKillSwitchService) ActivateGlobal(ctx context.Context, reason events.KillSwitchReason, activatedBy, details string) error {
+func (s *DefaultKillSwitchService) ActivateGlobal(
+	_ context.Context,
+	_ events.KillSwitchReason,
+	_, _ string,
+) error {
 	return nil
 }
 
 // DeactivateGlobal deactivates global kill switch.
-func (s *DefaultKillSwitchService) DeactivateGlobal(ctx context.Context, deactivatedBy, reason string) error {
+func (s *DefaultKillSwitchService) DeactivateGlobal(_ context.Context, _, _ string) error {
 	return nil
 }
