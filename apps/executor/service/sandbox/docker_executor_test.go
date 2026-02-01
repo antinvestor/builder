@@ -1,11 +1,13 @@
+//nolint:testpackage // white-box testing requires internal package access
 package sandbox
 
 import (
 	"testing"
 
-	appconfig "github.com/antinvestor/builder/apps/executor/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	appconfig "github.com/antinvestor/builder/apps/executor/config"
 )
 
 func TestDockerExecutor_GetLanguageConfig(t *testing.T) {

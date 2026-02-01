@@ -9,13 +9,21 @@ import (
 	"strings"
 	"time"
 
-	appconfig "github.com/antinvestor/builder/apps/executor/config"
-	"github.com/antinvestor/builder/internal/events"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/pitabwire/util"
+
+	appconfig "github.com/antinvestor/builder/apps/executor/config"
+	"github.com/antinvestor/builder/internal/events"
+)
+
+// Resource conversion constants.
+const (
+	bytesPerKB      = 1024
+	bytesPerMB      = bytesPerKB * bytesPerKB
+	cpuQuotaPerCore = 100000 // CPU quota in microseconds per CPU core
 )
 
 // languageConfig contains configuration for a specific language.
@@ -214,8 +222,8 @@ func (e *DockerExecutor) createContainer(
 	}
 
 	// Calculate resource limits
-	memoryLimit := int64(e.cfg.SandboxMemoryLimitMB) * 1024 * 1024 // Convert MB to bytes
-	cpuQuota := int64(e.cfg.SandboxCPULimit * 100000)              // CPU quota in microseconds (100000 = 1 CPU)
+	memoryLimit := int64(e.cfg.SandboxMemoryLimitMB) * bytesPerMB // Convert MB to bytes
+	cpuQuota := int64(e.cfg.SandboxCPULimit * cpuQuotaPerCore)    // CPU quota in microseconds
 
 	hostConfig := &container.HostConfig{
 		Mounts: []mount.Mount{

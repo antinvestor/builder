@@ -8,38 +8,25 @@ import (
 	"github.com/antinvestor/builder/internal/events"
 )
 
+// Regex match constants for submatch array access.
+const (
+	regexMinSubmatchLen      = 2
+	regexPytestSubmatchLen   = 5
+	regexJestSummaryLen      = 5
+	regexMavenSummaryLen     = 4
+	maxFailureLinesInSnippet = 5
+	millisecondsPerSecond    = 1000
+)
+
 // Package-level compiled regular expressions for better performance.
 // These are compiled once at package initialization rather than on each call.
-//
-//nolint:gochecknoglobals // package-level regex patterns for performance
 var (
-	// Go test patterns
+	// Go test patterns.
 	goPassPattern     = regexp.MustCompile(`(?m)^ok\s+\S+\s+([\d.]+)s`)
 	goFailPattern     = regexp.MustCompile(`(?m)^FAIL\s+\S+\s+([\d.]+)s`)
 	goTestPassPattern = regexp.MustCompile(`(?m)^--- PASS: (\S+)\s+\(([\d.]+)s\)`)
 	goTestFailPattern = regexp.MustCompile(`(?m)^--- FAIL: (\S+)\s+\(([\d.]+)s\)`)
 	goCoveragePattern = regexp.MustCompile(`coverage:\s+([\d.]+)%`)
-
-	// Python pytest patterns
-	pytestSummaryPattern = regexp.MustCompile(`(\d+)\s+passed(?:.*?(\d+)\s+failed)?(?:.*?(\d+)\s+skipped)?.*?in\s+([\d.]+)s`)
-	pytestTestPattern    = regexp.MustCompile(`(?m)^(\S+::\S+)\s+(PASSED|FAILED|SKIPPED|ERROR)`)
-	pytestCoveragePattern = regexp.MustCompile(`TOTAL\s+\d+\s+\d+\s+(\d+)%`)
-
-	// Node.js/Jest patterns
-	jestSummaryPattern  = regexp.MustCompile(`Tests:\s+(?:(\d+)\s+failed,\s+)?(?:(\d+)\s+skipped,\s+)?(?:(\d+)\s+passed,\s+)?(\d+)\s+total`)
-	jestDurationPattern = regexp.MustCompile(`Time:\s+([\d.]+)\s*s`)
-	jestTestPattern     = regexp.MustCompile(`(?m)^\s*(✓|✕|○)\s+(.+?)\s+\((\d+)\s*ms\)`)
-	jestCoveragePattern = regexp.MustCompile(`All files\s*\|\s*([\d.]+)`)
-
-	// Java/Maven patterns
-	mavenSummaryPattern = regexp.MustCompile(`Tests run:\s*(\d+),\s*Failures:\s*(\d+),\s*Errors:\s*(\d+),\s*Skipped:\s*(\d+)`)
-	mavenTimePattern    = regexp.MustCompile(`Time elapsed:\s*([\d.]+)\s*s`)
-	mavenTestPattern    = regexp.MustCompile(`(?m)^(\S+)\((\S+)\)\s+Time elapsed:\s*([\d.]+)\s*s\s*<<<\s*(FAILURE|ERROR)!`)
-
-	// Rust/Cargo patterns
-	rustSummaryPattern = regexp.MustCompile(`test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored`)
-	rustTimePattern    = regexp.MustCompile(`finished in ([\d.]+)s`)
-	rustTestPattern    = regexp.MustCompile(`(?m)^test (\S+)\s+\.\.\.\s+(ok|FAILED|ignored)`)
 )
 
 // TestResultParser parses test output from various test frameworks.
@@ -125,7 +112,7 @@ func (p *TestResultParser) parseGoTestOutput(output string, result *events.TestR
 
 	// Parse coverage if present
 	// "coverage: 85.5% of statements"
-	if matches := goCoveragePattern.FindStringSubmatch(output); len(matches) >= 2 {
+	if matches := goCoveragePattern.FindStringSubmatch(output); len(matches) >= regexMinSubmatchLen {
 		if coverage, err := strconv.ParseFloat(matches[1], 64); err == nil {
 			result.Coverage = coverage
 		}
@@ -136,7 +123,7 @@ func (p *TestResultParser) parseGoTestOutput(output string, result *events.TestR
 func (p *TestResultParser) parsePytestOutput(output string, result *events.TestResult) {
 	// Parse summary: "5 passed, 2 failed, 1 skipped in 1.23s"
 	summaryPattern := regexp.MustCompile(`(\d+)\s+passed(?:.*?(\d+)\s+failed)?(?:.*?(\d+)\s+skipped)?.*?in\s+([\d.]+)s`)
-	if matches := summaryPattern.FindStringSubmatch(output); len(matches) >= 2 {
+	if matches := summaryPattern.FindStringSubmatch(output); len(matches) >= regexMinSubmatchLen {
 		result.PassedTests = parseInt(matches[1])
 		if len(matches) >= 3 && matches[2] != "" {
 			result.FailedTests = parseInt(matches[2])
@@ -144,7 +131,7 @@ func (p *TestResultParser) parsePytestOutput(output string, result *events.TestR
 		if len(matches) >= 4 && matches[3] != "" {
 			result.SkippedTests = parseInt(matches[3])
 		}
-		if len(matches) >= 5 {
+		if len(matches) >= regexPytestSubmatchLen {
 			result.DurationMs = parseDuration(matches[4])
 		}
 		result.TotalTests = result.PassedTests + result.FailedTests + result.SkippedTests
@@ -172,7 +159,7 @@ func (p *TestResultParser) parsePytestOutput(output string, result *events.TestR
 	// Parse coverage if present
 	// "TOTAL ... 85%"
 	coveragePattern := regexp.MustCompile(`TOTAL\s+\d+\s+\d+\s+(\d+)%`)
-	if matches := coveragePattern.FindStringSubmatch(output); len(matches) >= 2 {
+	if matches := coveragePattern.FindStringSubmatch(output); len(matches) >= regexMinSubmatchLen {
 		if coverage, err := strconv.ParseFloat(matches[1], 64); err == nil {
 			result.Coverage = coverage
 		}
@@ -183,7 +170,7 @@ func (p *TestResultParser) parsePytestOutput(output string, result *events.TestR
 func (p *TestResultParser) parseJestOutput(output string, result *events.TestResult) {
 	// Parse summary: "Tests: 5 passed, 2 failed, 7 total"
 	summaryPattern := regexp.MustCompile(`Tests:\s+(\d+)\s+passed(?:,\s+(\d+)\s+failed)?(?:,\s+(\d+)\s+skipped)?`)
-	if matches := summaryPattern.FindStringSubmatch(output); len(matches) >= 2 {
+	if matches := summaryPattern.FindStringSubmatch(output); len(matches) >= regexMinSubmatchLen {
 		result.PassedTests = parseInt(matches[1])
 		if len(matches) >= 3 && matches[2] != "" {
 			result.FailedTests = parseInt(matches[2])
@@ -220,7 +207,7 @@ func (p *TestResultParser) parseJestOutput(output string, result *events.TestRes
 
 	// Parse coverage: "All files | 85.5 | 70 | 85.5 | 85.5 |"
 	coveragePattern := regexp.MustCompile(`All files\s*\|\s*([\d.]+)`)
-	if matches := coveragePattern.FindStringSubmatch(output); len(matches) >= 2 {
+	if matches := coveragePattern.FindStringSubmatch(output); len(matches) >= regexMinSubmatchLen {
 		if coverage, err := strconv.ParseFloat(matches[1], 64); err == nil {
 			result.Coverage = coverage
 		}
@@ -233,7 +220,7 @@ func (p *TestResultParser) parseMavenOutput(output string, result *events.TestRe
 	summaryPattern := regexp.MustCompile(
 		`Tests run:\s*(\d+),\s*Failures:\s*(\d+),\s*Errors:\s*(\d+),\s*Skipped:\s*(\d+)`,
 	)
-	if matches := summaryPattern.FindStringSubmatch(output); len(matches) >= 5 {
+	if matches := summaryPattern.FindStringSubmatch(output); len(matches) >= regexJestSummaryLen {
 		total := parseInt(matches[1])
 		failures := parseInt(matches[2])
 		errors := parseInt(matches[3])
@@ -250,7 +237,7 @@ func (p *TestResultParser) parseMavenOutput(output string, result *events.TestRe
 func (p *TestResultParser) parseCargoOutput(output string, result *events.TestResult) {
 	// Parse summary: "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
 	summaryPattern := regexp.MustCompile(`test result:.*?(\d+)\s+passed;\s+(\d+)\s+failed;\s+(\d+)\s+ignored`)
-	if matches := summaryPattern.FindStringSubmatch(output); len(matches) >= 4 {
+	if matches := summaryPattern.FindStringSubmatch(output); len(matches) >= regexMavenSummaryLen {
 		result.PassedTests = parseInt(matches[1])
 		result.FailedTests = parseInt(matches[2])
 		result.SkippedTests = parseInt(matches[3])
@@ -338,7 +325,7 @@ func parseDuration(s string) int64 {
 		return 0
 	}
 	f, _ := strconv.ParseFloat(s, 64)
-	return int64(f * 1000) // Convert to milliseconds
+	return int64(f * millisecondsPerSecond) // Convert to milliseconds
 }
 
 func extractGoTestFailure(output string, testName string) string {
@@ -360,7 +347,7 @@ func extractGoTestFailure(output string, testName string) string {
 			if trimmed != "" {
 				failureLines = append(failureLines, trimmed)
 			}
-			if len(failureLines) >= 5 {
+			if len(failureLines) >= maxFailureLinesInSnippet {
 				break
 			}
 		}

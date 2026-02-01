@@ -1,11 +1,13 @@
+//nolint:testpackage // white-box testing requires internal package access
 package sandbox
 
 import (
 	"testing"
 
-	"github.com/antinvestor/builder/internal/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/antinvestor/builder/internal/events"
 )
 
 func TestTestResultParser_ParseGoTestOutput(t *testing.T) {
@@ -456,7 +458,7 @@ coverage: 85.5% of statements
 ok  	github.com/example/pkg	0.010s`
 
 		result := parser.ParseResults(output, 0, "go")
-		assert.Equal(t, 85.5, result.Coverage)
+		assert.InDelta(t, 85.5, result.Coverage, 0.01)
 	})
 
 	t.Run("pytest coverage", func(t *testing.T) {
@@ -471,7 +473,7 @@ module.py                    20      3    85%
 TOTAL                        20      3    85%`
 
 		result := parser.ParseResults(output, 0, "python")
-		assert.Equal(t, float64(85), result.Coverage)
+		assert.InDelta(t, float64(85), result.Coverage, 0.01)
 	})
 
 	t.Run("jest coverage", func(t *testing.T) {
@@ -486,7 +488,7 @@ All files |   92.5  |    80    |   100   |   92.5  |
 ----------|---------|----------|---------|---------|`
 
 		result := parser.ParseResults(output, 0, "javascript")
-		assert.Equal(t, 92.5, result.Coverage)
+		assert.InDelta(t, 92.5, result.Coverage, 0.01)
 	})
 }
 

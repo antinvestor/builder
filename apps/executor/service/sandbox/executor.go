@@ -173,6 +173,7 @@ func (e *SandboxExecutor) Execute(ctx context.Context, req *SandboxExecutionRequ
 	defer atomic.AddInt32(&e.activeCount, -1)
 
 	// Check concurrency limit
+	//nolint:gosec // MaxConcurrentExecutions is a config value, typically small and won't overflow int32
 	if atomic.LoadInt32(&e.activeCount) > int32(e.cfg.MaxConcurrentExecutions) {
 		return nil, errors.New("max concurrent executions reached")
 	}
