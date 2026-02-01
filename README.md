@@ -4,48 +4,58 @@
 
 ## Architecture
 
-The platform consists of four independently deployable services:
+The platform consists of five independently deployable services:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          Service Feature Platform                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   ┌──────────────┐                                                          │
-│   │   Gateway    │  HTTP API entry point                                    │
-│   │  (stateless) │  • Receives feature requests                             │
-│   └──────┬───────┘  • Publishes to NATS queue                               │
-│          │          • Scale: Horizontal (unlimited)                         │
-│          ▼                                                                   │
-│   ┌──────────────┐                                                          │
-│   │   Worker     │  Main event processor                                    │
-│   │  (stateful)  │  • Repository checkout                                   │
-│   └──────┬───────┘  • Patch generation (LLM)                                │
-│          │          • Scale: Based on queue depth                           │
-│          │                                                                   │
-│   ┌──────┴───────┐                                                          │
-│   │              │                                                          │
-│   ▼              ▼                                                          │
-│ ┌────────────┐ ┌────────────┐                                               │
-│ │  Reviewer  │ │  Executor  │                                               │
-│ │ (security) │ │ (sandbox)  │                                               │
-│ └────────────┘ └────────────┘                                               │
-│   • Security     • Test execution                                           │
-│   • Architecture • Docker sandbox                                           │
-│   • Risk scoring • Needs Docker socket                                      │
-│   • Decisions    • Scale: Carefully                                         │
+│   ┌──────────────┐   ┌──────────────┐                                       │
+│   │   Gateway    │   │   Webhook    │                                       │
+│   │  (stateless) │   │  (stateless) │                                       │
+│   └──────┬───────┘   └──────┬───────┘                                       │
+│          │ HTTP API         │ External integrations                         │
+│          │                  │ • GitHub webhooks                             │
+│          ▼                  ▼                                               │
+│   ┌─────────────────────────────────────────────────┐                       │
+│   │              NATS / Kafka Queue                  │                       │
+│   │   • 3-level retry (L1 → L2 → L3 → DLQ)         │                       │
+│   │   • Partition-based routing                     │                       │
+│   └──────────────────────┬──────────────────────────┘                       │
+│                          │                                                   │
+│                          ▼                                                   │
+│   ┌──────────────────────────────────────────────────────────┐              │
+│   │                      Worker                               │              │
+│   │   • Repository checkout (semaphore: 10)                  │              │
+│   │   • LLM Pipeline: NormalizeSpec → AnalyzeImpact →        │              │
+│   │                   GeneratePlan → GenerateCode            │              │
+│   │   • Multi-provider: Anthropic, OpenAI, Google            │              │
+│   └──────────────────────────┬───────────────────────────────┘              │
+│                              │                                               │
+│              ┌───────────────┴───────────────┐                              │
+│              ▼                               ▼                              │
+│   ┌────────────────────┐      ┌────────────────────┐                       │
+│   │     Reviewer       │      │     Executor       │                       │
+│   │                    │      │                    │                       │
+│   │ • Security review  │      │ • Test execution   │                       │
+│   │ • Architecture     │      │ • Docker sandbox   │                       │
+│   │ • Risk scoring     │      │ • Semaphore: 50    │                       │
+│   │ • Kill switch      │      │ • Docker socket    │                       │
+│   └────────────────────┘      └────────────────────┘                       │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Services
 
-| Service | Purpose | Scaling | Resources |
-|---------|---------|---------|-----------|
-| **gateway** | HTTP API entry point | Horizontal (stateless) | 128MB, 0.5 CPU |
-| **worker** | Event processing, LLM calls | Queue depth | 512MB, 1.0 CPU |
-| **reviewer** | Security & architecture review | Independent | 256MB, 0.5 CPU |
-| **executor** | Sandboxed test execution | Careful (Docker) | 512MB, 2.0 CPU |
+| Service | Purpose | Scaling | Concurrency Control |
+|---------|---------|---------|---------------------|
+| **gateway** | HTTP API entry point | Horizontal (stateless) | None |
+| **webhook** | External integrations (GitHub, etc.) | Horizontal (stateless) | None |
+| **worker** | LLM pipeline, git operations, patch generation | Queue depth | Clone: 10, Exec: 50 |
+| **reviewer** | Security & architecture review, kill switch | Horizontal | None |
+| **executor** | Sandboxed Docker test execution | Careful (Docker socket) | Docker resources |
 
 ## Quick Start
 
@@ -97,25 +107,45 @@ github.com/antinvestor/builder/
 │   │   ├── config/config.go
 │   │   ├── Dockerfile
 │   │   └── service/
-│   ├── worker/                    # Main event processor
+│   ├── worker/                    # Main event processor (LLM pipeline)
 │   │   ├── cmd/main.go
 │   │   ├── config/config.go
 │   │   ├── Dockerfile
 │   │   └── service/
-│   ├── reviewer/                  # Review & control agent
+│   │       ├── handlers/          # Event handlers
+│   │       ├── repository/        # Git operations, workspace tracking
+│   │       ├── queue/             # Queue subscribers
+│   │       └── locks/             # Distributed locking
+│   ├── reviewer/                  # Security & architecture review
 │   │   ├── cmd/main.go
 │   │   ├── config/config.go
 │   │   ├── Dockerfile
 │   │   └── service/
-│   └── executor/                  # Sandbox execution
+│   ├── executor/                  # Sandbox test execution
+│   │   ├── cmd/main.go
+│   │   ├── config/config.go
+│   │   ├── Dockerfile
+│   │   └── service/
+│   └── webhook/                   # External integrations (GitHub, etc.)
 │       ├── cmd/main.go
 │       ├── config/config.go
 │       ├── Dockerfile
 │       └── service/
 ├── internal/                      # Shared code
 │   ├── events/                    # Event types & payloads
+│   ├── llm/                       # LLM client (multi-provider)
+│   │   ├── client.go              # MultiProviderClient
+│   │   ├── anthropic.go           # Anthropic provider
+│   │   ├── openai.go              # OpenAI provider
+│   │   ├── google.go              # Google provider
+│   │   ├── prompts.go             # Prompt templates
+│   │   ├── baml_client.go         # High-level pipeline
+│   │   └── types.go               # Shared types
 │   ├── models/                    # Shared data models
 │   └── utils/                     # Shared utilities
+├── docs/                          # Documentation
+│   ├── architecture.md            # System architecture
+│   └── operations-guide.md        # Operations guide
 ├── configs/                       # Configuration files
 ├── scripts/                       # Utility scripts
 ├── examples/                      # Example requests

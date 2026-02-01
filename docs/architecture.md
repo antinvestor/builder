@@ -8,10 +8,11 @@
 4. [Concurrency and Isolation Model](#concurrency-and-isolation-model)
 5. [Event System Design](#event-system-design)
 6. [Git Operations Layer](#git-operations-layer)
-7. [LLM Integration (BAML)](#llm-integration-baml)
+7. [LLM Integration](#llm-integration)
 8. [Sandbox Execution](#sandbox-execution)
 9. [Persistence Strategy](#persistence-strategy)
 10. [Failure and Recovery](#failure-and-recovery)
+11. [Known Limitations](#known-limitations)
 
 ---
 
@@ -19,16 +20,32 @@
 
 builder is an autonomous feature-building platform that uses event-driven architecture to orchestrate the end-to-end process of analyzing codebases, planning implementations, generating code, and verifying changes.
 
+### Current Implementation Status
+
+> **Note:** This document reflects the actual implemented system as of the current version.
+> Some features are fully implemented, while others are planned for future releases.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Gateway API | ✅ Implemented | HTTP entry point with queue publishing |
+| Worker Service | ✅ Implemented | LLM pipeline, git operations |
+| Reviewer Service | ✅ Implemented | Security review, kill switch |
+| Executor Service | ✅ Implemented | Docker sandbox execution |
+| Webhook Service | ✅ Implemented | External integrations |
+| Multi-provider LLM | ✅ Implemented | Anthropic, OpenAI, Google |
+| Queue Infrastructure | ✅ Implemented | NATS/Kafka with retry levels |
+| Persistent State | ⚠️ Partial | Database for executions, in-memory for workspace tracking |
+
 ### Design Principles
 
 | Principle | Implementation |
 |-----------|----------------|
-| **Event Sourcing** | All state changes captured as immutable events |
-| **Git Agnostic** | Abstract git operations through provider-neutral interface |
-| **Horizontal Scalability** | Stateless workers with partition-based assignment |
-| **Isolation** | Complete separation between concurrent feature executions |
-| **Idempotency** | All operations designed for safe retry |
-| **Observability** | Metrics, logs, and traces for all operations |
+| **Event-Driven** | Queue-based communication between services |
+| **Multi-Provider LLM** | Fallback support across Anthropic, OpenAI, Google |
+| **Horizontal Scalability** | Stateless services with semaphore-based concurrency |
+| **Isolation** | Workspace isolation per execution, Docker sandboxes |
+| **Retry with Backoff** | 3-level retry queues with exponential backoff |
+| **Observability** | OpenTelemetry integration via Frame framework |
 
 ### System Boundaries
 
@@ -39,19 +56,20 @@ builder is an autonomous feature-building platform that uses event-driven archit
 │                                                                                  │
 │  CONTROL PLANE                          DATA PLANE                              │
 │  ┌─────────────────────────┐            ┌─────────────────────────┐            │
-│  │ • Feature Submission    │            │ • Feature Workers       │            │
-│  │ • Repository Registry   │            │ • Git Operations        │            │
-│  │ • Observability API     │            │ • LLM Orchestration     │            │
-│  │ • Admin Operations      │            │ • Sandbox Execution     │            │
+│  │ • Gateway (HTTP API)    │            │ • Worker (LLM Pipeline) │            │
+│  │ • Webhook Service       │            │ • Git Operations        │            │
+│  │ • Health Endpoints      │            │ • Reviewer (Security)   │            │
+│  └─────────────────────────┘            │ • Executor (Sandbox)    │            │
+│                                          └─────────────────────────┘            │
+│                                                                                  │
+│  QUEUE INFRASTRUCTURE                   PERSISTENCE                             │
+│  ┌─────────────────────────┐            ┌─────────────────────────┐            │
+│  │ • NATS/Kafka            │            │ • PostgreSQL            │            │
+│  │ • 3-Level Retry Queues  │            │ • Local Workspace FS    │            │
+│  │ • Dead Letter Queues    │            │ • In-Memory State*      │            │
 │  └─────────────────────────┘            └─────────────────────────┘            │
 │                                                                                  │
-│  PERSISTENCE PLANE                      SECURITY PLANE                          │
-│  ┌─────────────────────────┐            ┌─────────────────────────┐            │
-│  │ • Event Store           │            │ • Secrets Manager       │            │
-│  │ • State Store           │            │ • Credential Provider   │            │
-│  │ • Artifact Store        │            │ • Audit Logger          │            │
-│  │ • Repository Cache      │            │ • Access Control        │            │
-│  └─────────────────────────┘            └─────────────────────────┘            │
+│  * Workspace and deduplication tracking are in-memory (see Known Limitations)  │
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -60,35 +78,55 @@ builder is an autonomous feature-building platform that uses event-driven archit
 
 ## Component Architecture
 
-### Component Catalog
+### Implemented Services (5 Services)
 
-#### Control Plane Components
+The platform consists of five independently deployable services:
 
-| Component | Type | Responsibility | Scaling Model |
-|-----------|------|----------------|---------------|
-| **API Gateway** | Stateless Service | Request routing, auth, rate limiting | Horizontal (HPA) |
-| **Feature Service** | Stateless Service | Feature submission, status queries | Horizontal (HPA) |
-| **Repository Service** | Stateless Service | Repository registration, credential mgmt | Horizontal (HPA) |
-| **Observability Service** | Stateless Service | Metrics aggregation, query interface | Horizontal (HPA) |
+| Service | Type | Responsibility | Scaling Model | Concurrency Control |
+|---------|------|----------------|---------------|---------------------|
+| **Gateway** | Stateless | HTTP API, queue publishing | Horizontal | None (stateless) |
+| **Worker** | Semi-Stateful | LLM pipeline, git operations, patch generation | Queue depth | Clone semaphore (10), Execution semaphore (50) |
+| **Reviewer** | Stateless | Security review, architecture review, kill switch | Horizontal | None |
+| **Executor** | Stateful | Docker sandbox, test execution | Careful | Docker socket access required |
+| **Webhook** | Stateless | External integrations, callbacks | Horizontal | None |
 
-#### Data Plane Components
+#### Service Dependencies
 
-| Component | Type | Responsibility | Scaling Model |
-|-----------|------|----------------|---------------|
-| **Feature Worker** | Stateful Consumer | Event processing, state machine execution | Match partition count |
-| **Git Operations Service** | Stateless Service | Git clone, fetch, commit, push | Horizontal (HPA) |
-| **LLM Orchestrator** | Stateless Service | BAML runtime, LLM request routing | Horizontal (HPA) |
-| **Code Analyzer** | Stateless Service | AST parsing, dependency analysis | Horizontal (HPA) |
-| **Sandbox Manager** | Stateful Service | Container lifecycle, execution isolation | Per-node daemon |
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           SERVICE DEPENDENCIES                                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   Gateway ──────────────────► NATS/Kafka ◄─────────────── Webhook            │
+│                                   │                                           │
+│                    ┌──────────────┼──────────────┐                           │
+│                    ▼              ▼              ▼                           │
+│                ┌────────┐    ┌────────┐    ┌────────┐                       │
+│                │ Worker │    │Reviewer│    │Executor│                       │
+│                └───┬────┘    └────────┘    └────────┘                       │
+│                    │                                                          │
+│         ┌─────────┼─────────┐                                                │
+│         ▼         ▼         ▼                                                │
+│    PostgreSQL   LLM APIs   Filesystem                                        │
+│                                                                               │
+│   Required Infrastructure:                                                    │
+│   • PostgreSQL - State persistence                                           │
+│   • NATS/Kafka - Queue infrastructure                                        │
+│   • Docker - Executor sandbox (optional)                                     │
+│   • LLM API Keys - Worker (Anthropic, OpenAI, or Google)                    │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
 
-#### Persistence Components
+#### Persistence Components (Actual)
 
-| Component | Type | Technology | Purpose |
-|-----------|------|------------|---------|
-| **Event Bus** | Distributed Log | Kafka/Redpanda | Event sourcing backbone |
-| **State Store** | Document Store | PostgreSQL (JSONB) | Materialized projections |
-| **Artifact Store** | Object Storage | S3-compatible | Binary artifacts, patches |
-| **Repository Cache** | File Storage | Local SSD + shared NFS | Git working copies |
+| Component | Technology | Purpose | Status |
+|-----------|------------|---------|--------|
+| **Queue** | NATS/Kafka | Event routing, retry queues | ✅ Implemented |
+| **State Store** | PostgreSQL | Execution state, repository registry | ✅ Implemented |
+| **Workspace Tracking** | In-Memory Map | Track active workspaces | ⚠️ Non-persistent |
+| **Deduplication Store** | In-Memory Map | Request deduplication | ⚠️ Non-persistent |
+| **Lock Manager** | Database-backed | Distributed locking | ✅ Implemented |
 
 ### Component Interaction Diagram
 
@@ -830,139 +868,154 @@ type CredentialLease struct {
 
 ---
 
-## LLM Integration (BAML)
+## LLM Integration
 
-### BAML Function Registry
+### Multi-Provider Client Architecture
 
-All LLM interactions are defined as typed BAML functions:
+The LLM integration uses a multi-provider client with automatic fallback support:
 
 ```
-baml/
-├── clients.baml          # LLM client configurations
-├── analyze.baml          # Codebase analysis functions
-├── plan.baml             # Implementation planning functions
-├── generate.baml         # Code generation functions
-├── validate.baml         # Validation functions
-└── diagnose.baml         # Error diagnosis functions
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        LLM CLIENT ARCHITECTURE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────┐     │
+│  │                    MultiProviderClient                              │     │
+│  │                                                                     │     │
+│  │  • Fallback across providers on failure                            │     │
+│  │  • Retry with exponential backoff (default 3 retries)              │     │
+│  │  • Usage tracking and cost estimation                              │     │
+│  │  • Prompt building from Go templates                               │     │
+│  └───────────────────────────┬────────────────────────────────────────┘     │
+│                              │                                               │
+│              ┌───────────────┼───────────────┐                              │
+│              │               │               │                              │
+│              ▼               ▼               ▼                              │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐               │
+│  │ AnthropicClient │ │   OpenAIClient  │ │  GoogleClient   │               │
+│  │                 │ │                 │ │                 │               │
+│  │ Models:         │ │ Models:         │ │ Models:         │               │
+│  │ • claude-sonnet │ │ • gpt-4o        │ │ • gemini-2.0    │               │
+│  │ • claude-opus   │ │ • gpt-4o-mini   │ │                 │               │
+│  │ • claude-haiku  │ │                 │ │                 │               │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘               │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Function Signatures
+### LLM Pipeline Functions
 
-```baml
-// analyze.baml
-function AnalyzeCodebase(
-    codebase_summary: CodebaseSummary,
-    feature_spec: FeatureSpec
-) -> AnalysisResult {
-    client Anthropic
-    prompt #"
-        Analyze this codebase and identify the scope for implementing the feature.
-        ...
-    "#
-}
+The code generation pipeline consists of four sequential functions:
 
-// plan.baml
-function GeneratePlan(
-    analysis: AnalysisResult,
-    feature_spec: FeatureSpec,
-    constraints: PlanConstraints
-) -> ExecutionPlan {
-    client Anthropic
-    prompt #"
-        Generate a step-by-step implementation plan.
-        ...
-    "#
-}
+| Function | Purpose | Input | Output |
+|----------|---------|-------|--------|
+| **NormalizeSpec** | Parse and structure feature specification | FeatureSpecification + codebase context | NormalizedSpecification |
+| **AnalyzeImpact** | Identify affected files and dependencies | NormalizedSpec + file contents | ImpactAnalysisResult |
+| **GeneratePlan** | Create step-by-step implementation plan | NormalizedSpec + ImpactAnalysis | ImplementationPlan |
+| **GenerateCode** | Generate code changes for each step | PlanStep + file contents | CodeGenerationResult |
 
-// generate.baml
-function GenerateCode(
-    step: PlanStep,
-    context: CodeContext,
-    existing_code: string
-) -> CodeChange {
-    client Anthropic
-    prompt #"
-        Generate the code changes for this step.
-        ...
-    "#
-}
+### Pipeline Flow (Actual Implementation)
 
-// validate.baml
-function ValidateChange(
-    change: CodeChange,
-    context: ValidationContext
-) -> ValidationResult {
-    client Anthropic
-    prompt #"
-        Validate this code change.
-        ...
-    "#
-}
-
-// diagnose.baml
-function DiagnoseFailure(
-    error: ExecutionError,
-    context: DiagnosisContext
-) -> Diagnosis {
-    client Anthropic
-    prompt #"
-        Diagnose this failure and suggest remediation.
-        ...
-    "#
-}
+```
+Worker Service                           BAMLClient                          MultiProviderClient
+     │                                        │                                      │
+     │  GeneratePatch(request)                │                                      │
+     │───────────────────────────────────────▶│                                      │
+     │                                        │                                      │
+     │                                        │  1. buildCodebaseContext()           │
+     │                                        │  2. detectLanguage()                 │
+     │                                        │                                      │
+     │                                        │  NormalizeSpec(input)                │
+     │                                        │─────────────────────────────────────▶│
+     │                                        │                                      │ Build prompt
+     │                                        │                                      │ HTTP POST to provider
+     │                                        │◀─────────────────────────────────────│
+     │                                        │  NormalizedSpecification             │
+     │                                        │                                      │
+     │                                        │  3. readRelevantFiles()              │
+     │                                        │                                      │
+     │                                        │  AnalyzeImpact(input)                │
+     │                                        │─────────────────────────────────────▶│
+     │                                        │◀─────────────────────────────────────│
+     │                                        │  ImpactAnalysisResult                │
+     │                                        │                                      │
+     │                                        │  GeneratePlan(input)                 │
+     │                                        │─────────────────────────────────────▶│
+     │                                        │◀─────────────────────────────────────│
+     │                                        │  ImplementationPlan                  │
+     │                                        │                                      │
+     │                                        │  FOR EACH step IN plan.Steps:        │
+     │                                        │    readFilesForStep()                │
+     │                                        │    GenerateCode(step)                │
+     │                                        │───────────────────────────────────▶  │
+     │                                        │◀───────────────────────────────────  │
+     │                                        │    Convert to Patch                  │
+     │                                        │                                      │
+     │  GeneratePatchResponse                 │                                      │
+     │◀───────────────────────────────────────│                                      │
+     │  {Patches, CommitMessage, TokensUsed}  │                                      │
 ```
 
-### BAML Runtime Integration
+### Prompt Templates
+
+Prompts are defined as Go templates in `internal/llm/prompts.go`:
 
 ```go
-// LLMOrchestrator manages BAML function execution
-type LLMOrchestrator interface {
-    // AnalyzeCodebase invokes the analysis function
-    AnalyzeCodebase(ctx context.Context, req *AnalyzeRequest) (*AnalysisResult, error)
+// Template functions available
+var templateFuncs = template.FuncMap{
+    "join":   strings.Join,
+    "indent": func(indent int, s string) string { ... },
+    "sub":    func(a, b int) int { return a - b },
+}
 
-    // GeneratePlan invokes the planning function
-    GeneratePlan(ctx context.Context, req *PlanRequest) (*ExecutionPlan, error)
+// Example: NormalizeSpec prompt structure
+const normalizeSpecPrompt = `
+You are analyzing a feature specification for a {{.Language}} codebase.
+...
+{{range $i, $criterion := .Spec.AcceptanceCriteria}}
+{{sub $i 1}}. {{$criterion}}
+{{end}}
+...
+`
+```
 
-    // GenerateCode invokes the code generation function
-    GenerateCode(ctx context.Context, req *GenerateRequest) (*CodeChange, error)
+### Error Handling and Retry
 
-    // ValidateChange invokes the validation function
-    ValidateChange(ctx context.Context, req *ValidateRequest) (*ValidationResult, error)
+```go
+// Retry configuration
+const (
+    defaultMaxRetries      = 3
+    defaultTimeoutSeconds  = 120
+)
 
-    // DiagnoseFailure invokes the diagnosis function
-    DiagnoseFailure(ctx context.Context, req *DiagnoseRequest) (*Diagnosis, error)
+// Error types that trigger provider fallback
+var retryableErrors = []error{
+    ErrRateLimited,        // Try next provider
+    ErrQuotaExceeded,      // Don't retry (permanent)
+    ErrContextTooLong,     // Don't retry (needs truncation)
+    ErrAllProvidersFailed, // Terminal failure
 }
 ```
 
-### Request Flow
+### Configuration
 
-```
-Worker                    LLM Orchestrator              BAML Runtime              LLM Provider
-   │                           │                            │                         │
-   │  GenerateCode(step)       │                            │                         │
-   │──────────────────────────▶│                            │                         │
-   │                           │                            │                         │
-   │                           │  Execute("GenerateCode")   │                         │
-   │                           │───────────────────────────▶│                         │
-   │                           │                            │                         │
-   │                           │                            │  Render prompt          │
-   │                           │                            │  with template          │
-   │                           │                            │                         │
-   │                           │                            │  POST /messages         │
-   │                           │                            │────────────────────────▶│
-   │                           │                            │                         │
-   │                           │                            │     Streaming response  │
-   │                           │                            │◀────────────────────────│
-   │                           │                            │                         │
-   │                           │                            │  Parse into CodeChange  │
-   │                           │                            │  Validate schema        │
-   │                           │                            │                         │
-   │                           │  CodeChange (typed)        │                         │
-   │                           │◀───────────────────────────│                         │
-   │                           │                            │                         │
-   │  CodeChange               │                            │                         │
-   │◀──────────────────────────│                            │                         │
-   │                           │                            │                         │
+```go
+type ClientConfig struct {
+    // Provider API keys (at least one required)
+    AnthropicAPIKey string
+    OpenAIAPIKey    string
+    GoogleAPIKey    string
+
+    // Model selection
+    DefaultProvider Provider  // "anthropic", "openai", "google"
+    DefaultModel    Model     // "claude-sonnet-4-20250514", etc.
+
+    // Limits
+    TimeoutSeconds  int       // Default: 120
+    MaxRetries      int       // Default: 3
+    MaxOutputTokens int       // Default: 16384
+    Temperature     float64   // Default: 0.0
+}
 ```
 
 ---
@@ -1317,6 +1370,55 @@ func (w *Worker) processEvent(ctx context.Context, execCtx *FeatureExecutionCont
     return nil
 }
 ```
+
+---
+
+## Known Limitations
+
+> **Important:** The following limitations should be addressed before production deployment.
+
+### Critical Issues
+
+| Issue | Component | Impact | Recommended Fix |
+|-------|-----------|--------|-----------------|
+| **In-Memory Workspace Tracking** | `repository/workspace.go` | Workspace mappings lost on restart; workspaces become orphaned | Implement database-backed workspace repository |
+| **In-Memory Deduplication** | `deduplication/store.go` | Duplicate request detection lost on restart; may reprocess requests | Implement Redis or database-backed deduplication store |
+| **Lock Polling Without Backoff** | `locks/lock_manager.go` | Aggressive polling (1s) under contention; CPU waste | Add exponential backoff to lock acquisition |
+| **No LLM Rate Limiter** | `internal/llm/client.go` | Relies on provider rate limit errors; suboptimal | Add proactive token bucket rate limiter |
+| **Cleanup Without Context** | `repository/cleanup.go` | Background goroutines don't respect shutdown signals | Add graceful shutdown with context propagation |
+
+### Concurrency Safeguards (Currently Implemented)
+
+These controls are in place and working:
+
+| Control | Location | Configuration | Default |
+|---------|----------|---------------|---------|
+| Clone Semaphore | `repository/git.go` | `MaxConcurrentClones` | 10 |
+| Execution Semaphore | `executor/service.go` | `MaxConcurrentExecutions` | 50 |
+| Distributed Lock | `locks/lock_manager.go` | Database-backed | Per-repository locking |
+| Request Deduplication | `deduplication/store.go` | In-memory | ⚠️ Non-persistent |
+
+### Queue Resilience (Implemented)
+
+Three-level retry with dead letter queue:
+
+```
+feature.requests         → L1 entry point
+feature.requests.retry1  → L2 retry (5 min delay)
+feature.requests.retry2  → L3 retry (30 min delay)
+feature.requests.dlq     → Dead letter queue (requires manual intervention)
+```
+
+### Recommended Pre-Production Checklist
+
+- [ ] **Issue #32:** Implement persistent workspace repository
+- [ ] **Issue #18:** Implement persistent deduplication store (existing issue)
+- [ ] **Issue #33:** Add exponential backoff to lock manager
+- [ ] **Issue #34:** Add proactive LLM rate limiter
+- [ ] **Issue #35:** Implement graceful shutdown for cleanup goroutines
+- [ ] Configure monitoring/alerting for DLQ depth
+- [ ] Load test with target concurrent execution count
+- [ ] Configure appropriate resource limits in Kubernetes
 
 ---
 
