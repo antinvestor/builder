@@ -96,6 +96,9 @@ const (
 	// PatchGenerationCompleted indicates all patches generated.
 	PatchGenerationCompleted EventType = "patch.generation.completed"
 
+	// PatchGenerationFailed indicates patch generation failed.
+	PatchGenerationFailed EventType = "patch.generation.failed"
+
 	// === TEST EVENTS ===
 
 	// TestGenerationStarted indicates test generation beginning.
@@ -171,6 +174,9 @@ const (
 	// GitBranchCreated indicates feature branch created.
 	GitBranchCreated EventType = "git.branch.created"
 
+	// GitBranchCreationFailed indicates branch creation failed.
+	GitBranchCreationFailed EventType = "git.branch.failed"
+
 	// GitCommitCreated indicates commit created.
 	GitCommitCreated EventType = "git.commit.created"
 
@@ -240,11 +246,13 @@ func (t EventType) IsFailureEvent() bool {
 		ImpactAnalysisFailed,
 		PlanGenerationFailed,
 		PatchGenerationStepFailed,
+		PatchGenerationFailed,
 		TestGenerationFailed,
 		TestExecutionFailed,
 		BuildFailed,
 		ReviewFailed,
 		RollbackFailed,
+		GitBranchCreationFailed,
 		GitPushFailed,
 		LLMInvocationFailed:
 		return true
@@ -355,6 +363,7 @@ func AllEventTypes() []EventType {
 		PatchGenerationStepCompleted,
 		PatchGenerationStepFailed,
 		PatchGenerationCompleted,
+		PatchGenerationFailed,
 		// Test
 		TestGenerationStarted,
 		TestGenerationCompleted,
@@ -382,6 +391,7 @@ func AllEventTypes() []EventType {
 		RollbackFailed,
 		// Git
 		GitBranchCreated,
+		GitBranchCreationFailed,
 		GitCommitCreated,
 		GitPushStarted,
 		GitPushCompleted,

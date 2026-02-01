@@ -122,19 +122,28 @@ const (
 
 // PatchGenerationCompletedPayload is the payload for PatchGenerationCompleted.
 type PatchGenerationCompletedPayload struct {
-	TotalSteps      int                    `json:"total_steps"`
-	StepsCompleted  int                    `json:"steps_completed"`
-	TotalFileChanges int                    `json:"total_file_changes"`
-	FilesCreated    int                    `json:"files_created"`
-	FilesModified   int                    `json:"files_modified"`
-	FilesDeleted    int                    `json:"files_deleted"`
-	TotalLinesAdded int                    `json:"total_lines_added"`
-	TotalLinesRemoved int                    `json:"total_lines_removed"`
-	Commits         []CommitInfo           `json:"commits"`
-	FinalCommitSHA  string                 `json:"final_commit_sha"`
-	TotalDurationMS int64                  `json:"total_duration_ms"`
-	TotalLLMTokens  int                    `json:"total_llm_tokens"`
-	CompletedAt     time.Time              `json:"completed_at"`
+	TotalSteps       int          `json:"total_steps"`
+	StepsCompleted   int          `json:"steps_completed"`
+	TotalFileChanges int          `json:"total_file_changes"`
+	FilesCreated     int          `json:"files_created"`
+	FilesModified    int          `json:"files_modified"`
+	FilesDeleted     int          `json:"files_deleted"`
+	TotalLinesAdded  int          `json:"total_lines_added"`
+	TotalLinesRemoved int         `json:"total_lines_removed"`
+	Commits          []CommitInfo `json:"commits"`
+	FinalCommitSHA   string       `json:"final_commit_sha"`
+	TotalDurationMS  int64        `json:"total_duration_ms"`
+	TotalLLMTokens   int          `json:"total_llm_tokens"`
+	CompletedAt      time.Time    `json:"completed_at"`
+}
+
+// PatchGenerationFailedPayload is the payload for PatchGenerationFailed.
+type PatchGenerationFailedPayload struct {
+	ErrorCode    string            `json:"error_code"`
+	ErrorMessage string            `json:"error_message"`
+	Retryable    bool              `json:"retryable"`
+	ErrorContext map[string]string `json:"error_context,omitempty"`
+	FailedAt     time.Time         `json:"failed_at"`
 }
 
 // ===== UNIFIED DIFF HELPERS =====

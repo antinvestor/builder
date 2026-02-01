@@ -11,6 +11,7 @@ import (
 	"github.com/pitabwire/util"
 
 	appconfig "github.com/antinvestor/builder/apps/gateway/config"
+	"github.com/antinvestor/builder/apps/gateway/handlers"
 )
 
 func main() {
@@ -78,20 +79,8 @@ func main() {
 	})
 
 	// Feature submission endpoint
-	mux.HandleFunc("/api/v1/features", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		// TODO: Parse request and publish to queue
-		// This is where the gateway receives feature requests and publishes them
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusAccepted)
-		w.Write([]byte(`{"status":"accepted","message":"Feature request queued"}`))
-	})
-
-	_ = qMan // Will be used in feature endpoint
+	featureHandler := handlers.NewFeatureHandler(&cfg, qMan)
+	mux.HandleFunc("/api/v1/features", featureHandler.HandleFeatureRequest)
 
 	// ==========================================================================
 	// Initialize Service

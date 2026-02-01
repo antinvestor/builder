@@ -66,6 +66,7 @@ func (h *RepositoryCheckoutEvent) Execute(ctx context.Context, payload any) erro
 		return fmt.Errorf("invalid payload type: expected *FeatureExecutionInitializedPayload")
 	}
 
+	// Generate execution ID for this feature build
 	execID := events.NewExecutionID()
 
 	// Emit checkout started
@@ -94,8 +95,11 @@ func (h *RepositoryCheckoutEvent) Execute(ctx context.Context, payload any) erro
 		return err
 	}
 
-	// Emit completion
+	// Emit completion with execution context for downstream handlers
 	return h.eventsMan.Emit(ctx, string(events.RepositoryCheckoutCompleted), &events.RepositoryCheckoutCompletedPayload{
+		ExecutionID:   execID,
+		Specification: request.Spec,
+		RepositoryURL: request.Repository.RemoteURL,
 		WorkspacePath: result.WorkspacePath,
 		HeadCommitSHA: result.CommitSHA,
 		BranchName:    result.Branch,
@@ -177,8 +181,15 @@ func (h *PatchGenerationEvent) Validate(ctx context.Context, payload any) error 
 	return nil
 }
 
-// Execute processes patch generation.
+// Execute processes patch generation and completes the full pipeline.
 func (h *PatchGenerationEvent) Execute(ctx context.Context, payload any) error {
+	request, ok := payload.(*events.RepositoryCheckoutCompletedPayload)
+	if !ok {
+		return fmt.Errorf("invalid payload type: expected *RepositoryCheckoutCompletedPayload")
+	}
+
+	execID := request.ExecutionID
+
 	// Emit patch generation started
 	if err := h.eventsMan.Emit(ctx, string(events.PatchGenerationStarted), &events.PatchGenerationStartedPayload{
 		TotalSteps: 1,
@@ -187,21 +198,132 @@ func (h *PatchGenerationEvent) Execute(ctx context.Context, payload any) error {
 		return err
 	}
 
+	// Get project structure for context
+	projectStructure, _ := h.repoService.GetProjectStructure(ctx, execID)
+
 	// Generate patches using BAML/LLM
 	resp, err := h.bamlClient.GeneratePatch(ctx, &GeneratePatchRequest{
-		ExecutionID: events.NewExecutionID(),
+		ExecutionID:      execID,
+		Specification:    request.Specification,
+		WorkspacePath:    request.WorkspacePath,
+		RepositoryContext: projectStructure,
 	})
 	if err != nil {
-		return err
+		h.eventsMan.Emit(ctx, string(events.PatchGenerationFailed), &events.PatchGenerationFailedPayload{
+			ErrorCode:    "llm_error",
+			ErrorMessage: err.Error(),
+			Retryable:    true,
+			FailedAt:     time.Now(),
+		})
+		return fmt.Errorf("patch generation failed: %w", err)
 	}
 
+	// If no patches generated, emit failure
+	if len(resp.Patches) == 0 {
+		h.eventsMan.Emit(ctx, string(events.PatchGenerationFailed), &events.PatchGenerationFailedPayload{
+			ErrorCode:    "no_patches",
+			ErrorMessage: "LLM generated no patches",
+			Retryable:    true,
+			FailedAt:     time.Now(),
+		})
+		return fmt.Errorf("no patches generated")
+	}
+
+	// Create feature branch
+	featureBranch := fmt.Sprintf("feature/%s", execID.Short())
+	if err := h.repoService.CreateBranch(ctx, execID, featureBranch); err != nil {
+		h.eventsMan.Emit(ctx, string(events.GitBranchCreationFailed), &events.GitBranchCreationFailedPayload{
+			BranchName:   featureBranch,
+			ErrorCode:    "branch_create_failed",
+			ErrorMessage: err.Error(),
+			FailedAt:     time.Now(),
+		})
+		return fmt.Errorf("create feature branch: %w", err)
+	}
+
+	// Emit branch created event
+	h.eventsMan.Emit(ctx, string(events.GitBranchCreated), &events.GitBranchCreatedPayload{
+		BranchName:    featureBranch,
+		BaseBranch:    request.BranchName,
+		BaseCommitSHA: request.HeadCommitSHA,
+		CreatedAt:     time.Now(),
+	})
+
+	// Apply patches to workspace
+	for _, patch := range resp.Patches {
+		internalPatch := &events.Patch{
+			FilePath:   patch.FilePath,
+			Action:     patch.Action,
+			NewContent: patch.NewContent,
+		}
+		if err := h.repoService.ApplyPatch(ctx, execID, internalPatch); err != nil {
+			return fmt.Errorf("apply patch to %s: %w", patch.FilePath, err)
+		}
+	}
+
+	// Create commit
+	commitInfo, err := h.repoService.CreateCommit(ctx, execID, resp.CommitMessage)
+	if err != nil {
+		return fmt.Errorf("create commit: %w", err)
+	}
+
+	// Emit commit created event
+	h.eventsMan.Emit(ctx, string(events.GitCommitCreated), &events.GitCommitCreatedPayload{
+		Commit: *commitInfo,
+	})
+
+	// Push branch to remote
+	h.eventsMan.Emit(ctx, string(events.GitPushStarted), &events.GitPushStartedPayload{
+		BranchName: featureBranch,
+		StartedAt:  time.Now(),
+	})
+
+	if err := h.repoService.PushBranch(ctx, execID, featureBranch); err != nil {
+		h.eventsMan.Emit(ctx, string(events.GitPushFailed), &events.GitPushFailedPayload{
+			BranchName:   featureBranch,
+			ErrorCode:    events.GitPushErrorNetwork,
+			ErrorMessage: err.Error(),
+			Retryable:    true,
+			FailedAt:     time.Now(),
+		})
+		return fmt.Errorf("push branch: %w", err)
+	}
+
+	// Emit push completed event
+	h.eventsMan.Emit(ctx, string(events.GitPushCompleted), &events.GitPushCompletedPayload{
+		BranchName:      featureBranch,
+		RemoteRef:       "refs/heads/" + featureBranch,
+		RemoteCommitSHA: commitInfo.SHA,
+		CommitsPushed:   1,
+		CompletedAt:     time.Now(),
+	})
+
 	// Emit patch generation completed
-	return h.eventsMan.Emit(ctx, string(events.PatchGenerationCompleted), &events.PatchGenerationCompletedPayload{
+	if err := h.eventsMan.Emit(ctx, string(events.PatchGenerationCompleted), &events.PatchGenerationCompletedPayload{
 		TotalSteps:     1,
 		StepsCompleted: 1,
 		TotalLLMTokens: resp.TokensUsed,
-		FinalCommitSHA: "stub-commit",
+		FinalCommitSHA: commitInfo.SHA,
 		CompletedAt:    time.Now(),
+	}); err != nil {
+		return err
+	}
+
+	// Emit feature delivered
+	return h.eventsMan.Emit(ctx, string(events.FeatureDelivered), &events.FeatureDeliveredPayload{
+		BranchName:    featureBranch,
+		RemoteRef:     "refs/heads/" + featureBranch,
+		HeadCommitSHA: commitInfo.SHA,
+		Summary: events.DeliverySummary{
+			Title:       request.Specification.Title,
+			Description: resp.CommitMessage,
+			Execution: events.ExecutionSummary{
+				StepsCompleted:  1,
+				FilesModified:   len(resp.Patches),
+				CommitsCreated:  1,
+				LLMTokensUsed:   resp.TokensUsed,
+			},
+		},
 	})
 }
 

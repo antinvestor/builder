@@ -19,6 +19,21 @@ type GitBranchCreatedPayload struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// GitBranchCreationFailedPayload is the payload for GitBranchCreationFailed.
+type GitBranchCreationFailedPayload struct {
+	// BranchName is the branch that failed to create.
+	BranchName string `json:"branch_name"`
+
+	// ErrorCode categorizes the error.
+	ErrorCode string `json:"error_code"`
+
+	// ErrorMessage is the error message.
+	ErrorMessage string `json:"error_message"`
+
+	// FailedAt is when the failure occurred.
+	FailedAt time.Time `json:"failed_at"`
+}
+
 // ===== GIT COMMIT EVENTS =====
 
 // GitCommitCreatedPayload is the payload for GitCommitCreated.

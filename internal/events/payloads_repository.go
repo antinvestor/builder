@@ -27,6 +27,15 @@ const (
 
 // RepositoryCheckoutCompletedPayload is the payload for RepositoryCheckoutCompleted.
 type RepositoryCheckoutCompletedPayload struct {
+	// ExecutionID is the feature execution identifier for context tracking.
+	ExecutionID ExecutionID `json:"execution_id"`
+
+	// Specification is the feature specification for patch generation.
+	Specification FeatureSpecification `json:"specification"`
+
+	// RepositoryURL is the repository URL for reference.
+	RepositoryURL string `json:"repository_url"`
+
 	WorkspacePath     string            `json:"workspace_path"`
 	HeadCommitSHA     string            `json:"head_commit_sha"`
 	HeadCommitMessage string            `json:"head_commit_message"`

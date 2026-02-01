@@ -277,11 +277,27 @@ func (s *RepositoryService) CreateCommit(ctx context.Context, executionID events
 	}, nil
 }
 
+// CreateBranch creates a new feature branch in the workspace.
+func (s *RepositoryService) CreateBranch(ctx context.Context, executionID events.ExecutionID, branchName string) error {
+	workspacePath := s.GetWorkspacePath(executionID)
+
+	// Create and checkout new branch
+	branchCmd := exec.CommandContext(ctx, "git", "checkout", "-b", branchName)
+	branchCmd.Dir = workspacePath
+
+	if output, err := branchCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git checkout -b failed: %w: %s", err, string(output))
+	}
+
+	return nil
+}
+
 // PushBranch pushes the feature branch to the remote.
 func (s *RepositoryService) PushBranch(ctx context.Context, executionID events.ExecutionID, branchName string) error {
 	workspacePath := s.GetWorkspacePath(executionID)
 
-	pushCmd := exec.CommandContext(ctx, "git", "push", "origin", branchName)
+	// Push with -u to set upstream tracking
+	pushCmd := exec.CommandContext(ctx, "git", "push", "-u", "origin", branchName)
 	pushCmd.Dir = workspacePath
 	pushCmd.Env = s.buildGitEnv()
 
