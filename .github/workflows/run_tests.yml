@@ -1,9 +1,14 @@
 name: Service testing action
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout new code for testing

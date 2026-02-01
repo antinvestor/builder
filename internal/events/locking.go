@@ -4,8 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"sync"
 	"time"
+)
+
+// Backoff configuration constants.
+const (
+	lockBaseBackoff    = 100 * time.Millisecond
+	lockMaxBackoff     = 30 * time.Second
+	lockJitterFraction = 0.3
 )
 
 // Common locking errors.
@@ -103,8 +111,10 @@ func (e *ExecutionLock) AcquireExecutionLock(
 
 // InMemoryLockManager is an in-memory implementation for testing.
 type InMemoryLockManager struct {
-	mu    sync.RWMutex
-	locks map[string]*inMemoryLock
+	mu       sync.RWMutex
+	locks    map[string]*inMemoryLock
+	stopCh   chan struct{}
+	stoppedCh chan struct{}
 }
 
 type inMemoryLock struct {
@@ -118,56 +128,93 @@ type inMemoryLock struct {
 // NewInMemoryLockManager creates a new in-memory lock manager.
 func NewInMemoryLockManager() *InMemoryLockManager {
 	m := &InMemoryLockManager{
-		locks: make(map[string]*inMemoryLock),
+		locks:     make(map[string]*inMemoryLock),
+		stopCh:    make(chan struct{}),
+		stoppedCh: make(chan struct{}),
 	}
 	// Start cleanup goroutine
 	go m.cleanupExpired()
 	return m
 }
 
+// Close stops the lock manager's cleanup goroutine gracefully.
+func (m *InMemoryLockManager) Close() error {
+	close(m.stopCh)
+	<-m.stoppedCh
+	return nil
+}
+
 func (m *InMemoryLockManager) cleanupExpired() {
+	defer close(m.stoppedCh)
+
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		m.mu.Lock()
-		now := time.Now()
-		for key, lock := range m.locks {
-			if lock.expiresAt.Before(now) {
-				delete(m.locks, key)
+	for {
+		select {
+		case <-m.stopCh:
+			return
+		case <-ticker.C:
+			m.mu.Lock()
+			now := time.Now()
+			for key, lock := range m.locks {
+				if lock.expiresAt.Before(now) {
+					delete(m.locks, key)
+				}
 			}
+			m.mu.Unlock()
 		}
-		m.mu.Unlock()
 	}
 }
 
-// Acquire attempts to acquire a lock.
+// Acquire attempts to acquire a lock with exponential backoff.
 func (m *InMemoryLockManager) Acquire(ctx context.Context, key string, owner string, ttl time.Duration) (DistributedLock, error) {
 	deadline, ok := ctx.Deadline()
 	if !ok {
 		deadline = time.Now().Add(30 * time.Second)
 	}
 
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
-
+	attempt := 0
 	for {
+		lock, acquired, err := m.TryAcquire(ctx, key, owner, ttl)
+		if err != nil {
+			return nil, err
+		}
+		if acquired {
+			return lock, nil
+		}
+		if time.Now().After(deadline) {
+			return nil, ErrLockNotAcquired
+		}
+
+		// Calculate exponential backoff with jitter
+		backoff := calculateLockBackoff(attempt)
+		attempt++
+
+		timer := time.NewTimer(backoff)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return nil, ctx.Err()
-		case <-ticker.C:
-			lock, acquired, err := m.TryAcquire(ctx, key, owner, ttl)
-			if err != nil {
-				return nil, err
-			}
-			if acquired {
-				return lock, nil
-			}
-			if time.Now().After(deadline) {
-				return nil, ErrLockNotAcquired
-			}
+		case <-timer.C:
+			// Continue to next attempt
 		}
 	}
+}
+
+// calculateLockBackoff computes backoff duration with exponential increase and jitter.
+func calculateLockBackoff(attempt int) time.Duration {
+	// Exponential backoff: base * 2^attempt
+	backoff := lockBaseBackoff * time.Duration(1<<min(attempt, 10))
+	if backoff > lockMaxBackoff {
+		backoff = lockMaxBackoff
+	}
+
+	// Add jitter: +/- jitterFraction * backoff
+	jitterRange := float64(backoff) * lockJitterFraction
+	jitter := time.Duration((rand.Float64()*2 - 1) * jitterRange)
+
+	return backoff + jitter
 }
 
 // TryAcquire attempts to acquire a lock without blocking.

@@ -7,6 +7,7 @@ require (
 	github.com/pitabwire/frame v1.70.2
 	github.com/pitabwire/util v0.4.0
 	github.com/rs/xid v1.6.0
+	golang.org/x/time v0.14.0
 	gorm.io/gorm v1.31.1
 )
 

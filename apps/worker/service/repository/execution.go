@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -145,40 +146,204 @@ func Migrate(ctx context.Context, dbManager interface{}, migrationPath string) e
 	return nil
 }
 
+// WorkspaceStatus represents the status of a workspace.
+type WorkspaceStatus string
+
+const (
+	WorkspaceStatusActive         WorkspaceStatus = "active"
+	WorkspaceStatusCleanupPending WorkspaceStatus = "cleanup_pending"
+	WorkspaceStatusCleaned        WorkspaceStatus = "cleaned"
+)
+
 // WorkspaceRepository handles workspace persistence.
 type WorkspaceRepository interface {
 	Create(ctx context.Context, workspace *Workspace) error
 	GetByExecutionID(ctx context.Context, executionID string) (*Workspace, error)
 	Delete(ctx context.Context, executionID string) error
+	UpdateStatus(ctx context.Context, executionID string, status WorkspaceStatus) error
+	UpdateLastAccessed(ctx context.Context, executionID string) error
+	ListByStatus(ctx context.Context, status WorkspaceStatus) ([]*Workspace, error)
+	ListOrphaned(ctx context.Context, olderThan time.Duration) ([]*Workspace, error)
+	ListAll(ctx context.Context) ([]*Workspace, error)
 }
 
 // Workspace represents a repository workspace.
 type Workspace struct {
-	ExecutionID   string    `json:"execution_id"   gorm:"primaryKey"`
-	LocalPath     string    `json:"local_path"`
-	RepositoryURL string    `json:"repository_url"`
-	Branch        string    `json:"branch"`
-	CommitSHA     string    `json:"commit_sha"`
-	CreatedAt     time.Time `json:"created_at"`
+	ExecutionID   string          `json:"execution_id"   gorm:"primaryKey"`
+	LocalPath     string          `json:"local_path"`
+	RepositoryURL string          `json:"repository_url"`
+	Branch        string          `json:"branch"`
+	CommitSHA     string          `json:"commit_sha"`
+	Status        WorkspaceStatus `json:"status"         gorm:"default:active"`
+	CreatedAt     time.Time       `json:"created_at"`
+	LastAccessed  time.Time       `json:"last_accessed"`
 }
 
-// MemoryWorkspaceRepository is an in-memory workspace repository.
-type MemoryWorkspaceRepository struct {
-	mu         sync.RWMutex
-	workspaces map[string]*Workspace
+// TableName returns the table name for the Workspace model.
+func (Workspace) TableName() string {
+	return "workspaces"
+}
+
+// PGWorkspaceRepository is the PostgreSQL implementation of WorkspaceRepository.
+type PGWorkspaceRepository struct {
+	pool pool.Pool
 }
 
 // NewWorkspaceRepository creates a new workspace repository.
-func NewWorkspaceRepository(ctx context.Context, pool pool.Pool) WorkspaceRepository {
+// If a database pool is provided, it uses PostgreSQL for persistence.
+// Otherwise, it falls back to in-memory storage.
+func NewWorkspaceRepository(ctx context.Context, p pool.Pool) WorkspaceRepository {
+	if p != nil {
+		return &PGWorkspaceRepository{pool: p}
+	}
 	return &MemoryWorkspaceRepository{
 		workspaces: make(map[string]*Workspace),
 	}
+}
+
+func (r *PGWorkspaceRepository) db(ctx context.Context, readOnly bool) *gorm.DB {
+	if r.pool == nil {
+		return nil
+	}
+	return r.pool.DB(ctx, readOnly)
+}
+
+// Create creates a workspace record.
+func (r *PGWorkspaceRepository) Create(ctx context.Context, workspace *Workspace) error {
+	db := r.db(ctx, false)
+	if db == nil {
+		return nil
+	}
+
+	workspace.Status = WorkspaceStatusActive
+	workspace.CreatedAt = time.Now()
+	workspace.LastAccessed = time.Now()
+	return db.Create(workspace).Error
+}
+
+// GetByExecutionID retrieves a workspace by execution ID.
+func (r *PGWorkspaceRepository) GetByExecutionID(
+	ctx context.Context,
+	executionID string,
+) (*Workspace, error) {
+	db := r.db(ctx, true)
+	if db == nil {
+		return nil, fmt.Errorf("workspace not found: %s", executionID)
+	}
+
+	var ws Workspace
+	if err := db.First(&ws, "execution_id = ?", executionID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("workspace not found: %s", executionID)
+		}
+		return nil, err
+	}
+	return &ws, nil
+}
+
+// Delete deletes a workspace record.
+func (r *PGWorkspaceRepository) Delete(ctx context.Context, executionID string) error {
+	db := r.db(ctx, false)
+	if db == nil {
+		return nil
+	}
+
+	return db.Delete(&Workspace{}, "execution_id = ?", executionID).Error
+}
+
+// UpdateStatus updates the workspace status.
+func (r *PGWorkspaceRepository) UpdateStatus(
+	ctx context.Context,
+	executionID string,
+	status WorkspaceStatus,
+) error {
+	db := r.db(ctx, false)
+	if db == nil {
+		return nil
+	}
+
+	return db.Model(&Workspace{}).
+		Where("execution_id = ?", executionID).
+		Update("status", status).
+		Error
+}
+
+// UpdateLastAccessed updates the last accessed timestamp.
+func (r *PGWorkspaceRepository) UpdateLastAccessed(ctx context.Context, executionID string) error {
+	db := r.db(ctx, false)
+	if db == nil {
+		return nil
+	}
+
+	return db.Model(&Workspace{}).
+		Where("execution_id = ?", executionID).
+		Update("last_accessed", time.Now()).
+		Error
+}
+
+// ListByStatus lists workspaces with a specific status.
+func (r *PGWorkspaceRepository) ListByStatus(
+	ctx context.Context,
+	status WorkspaceStatus,
+) ([]*Workspace, error) {
+	db := r.db(ctx, true)
+	if db == nil {
+		return nil, nil
+	}
+
+	var workspaces []*Workspace
+	if err := db.Where("status = ?", status).Find(&workspaces).Error; err != nil {
+		return nil, err
+	}
+	return workspaces, nil
+}
+
+// ListOrphaned lists workspaces that haven't been accessed recently.
+func (r *PGWorkspaceRepository) ListOrphaned(
+	ctx context.Context,
+	olderThan time.Duration,
+) ([]*Workspace, error) {
+	db := r.db(ctx, true)
+	if db == nil {
+		return nil, nil
+	}
+
+	cutoff := time.Now().Add(-olderThan)
+	var workspaces []*Workspace
+	err := db.Where("status = ? AND last_accessed < ?", WorkspaceStatusActive, cutoff).
+		Find(&workspaces).Error
+	if err != nil {
+		return nil, err
+	}
+	return workspaces, nil
+}
+
+// ListAll lists all workspaces.
+func (r *PGWorkspaceRepository) ListAll(ctx context.Context) ([]*Workspace, error) {
+	db := r.db(ctx, true)
+	if db == nil {
+		return nil, nil
+	}
+
+	var workspaces []*Workspace
+	if err := db.Find(&workspaces).Error; err != nil {
+		return nil, err
+	}
+	return workspaces, nil
+}
+
+// MemoryWorkspaceRepository is an in-memory workspace repository for testing.
+type MemoryWorkspaceRepository struct {
+	mu         sync.RWMutex
+	workspaces map[string]*Workspace
 }
 
 // Create creates a workspace record.
 func (r *MemoryWorkspaceRepository) Create(ctx context.Context, workspace *Workspace) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	workspace.Status = WorkspaceStatusActive
+	workspace.LastAccessed = time.Now()
 	r.workspaces[workspace.ExecutionID] = workspace
 	return nil
 }
@@ -203,4 +368,75 @@ func (r *MemoryWorkspaceRepository) Delete(ctx context.Context, executionID stri
 	defer r.mu.Unlock()
 	delete(r.workspaces, executionID)
 	return nil
+}
+
+// UpdateStatus updates the workspace status.
+func (r *MemoryWorkspaceRepository) UpdateStatus(
+	ctx context.Context,
+	executionID string,
+	status WorkspaceStatus,
+) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if ws, ok := r.workspaces[executionID]; ok {
+		ws.Status = status
+	}
+	return nil
+}
+
+// UpdateLastAccessed updates the last accessed timestamp.
+func (r *MemoryWorkspaceRepository) UpdateLastAccessed(
+	ctx context.Context,
+	executionID string,
+) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if ws, ok := r.workspaces[executionID]; ok {
+		ws.LastAccessed = time.Now()
+	}
+	return nil
+}
+
+// ListByStatus lists workspaces with a specific status.
+func (r *MemoryWorkspaceRepository) ListByStatus(
+	ctx context.Context,
+	status WorkspaceStatus,
+) ([]*Workspace, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var result []*Workspace
+	for _, ws := range r.workspaces {
+		if ws.Status == status {
+			result = append(result, ws)
+		}
+	}
+	return result, nil
+}
+
+// ListOrphaned lists workspaces that haven't been accessed recently.
+func (r *MemoryWorkspaceRepository) ListOrphaned(
+	ctx context.Context,
+	olderThan time.Duration,
+) ([]*Workspace, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	cutoff := time.Now().Add(-olderThan)
+	var result []*Workspace
+	for _, ws := range r.workspaces {
+		if ws.Status == WorkspaceStatusActive && ws.LastAccessed.Before(cutoff) {
+			result = append(result, ws)
+		}
+	}
+	return result, nil
+}
+
+// ListAll lists all workspaces.
+func (r *MemoryWorkspaceRepository) ListAll(ctx context.Context) ([]*Workspace, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]*Workspace, 0, len(r.workspaces))
+	for _, ws := range r.workspaces {
+		result = append(result, ws)
+	}
+	return result, nil
 }

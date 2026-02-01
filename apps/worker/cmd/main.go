@@ -72,6 +72,18 @@ func main() {
 	bamlClient := setupBAMLClient(ctx, &cfg)
 
 	// ==========================================================================
+	// Setup Workspace Cleanup Service
+	// ==========================================================================
+
+	workspaceCleanup := repository.NewWorkspaceCleanupService(
+		workspaceRepo,
+		cfg.WorkspaceBasePath,
+		cfg.MaxWorkspaceAgeHours,
+	)
+	workspaceCleanup.Start(ctx)
+	defer workspaceCleanup.Stop()
+
+	// ==========================================================================
 	// Register Publishers
 	// ==========================================================================
 
