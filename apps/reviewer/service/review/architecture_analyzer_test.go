@@ -1,11 +1,13 @@
-package review
+package review //nolint:testpackage // white-box testing requires internal access
 
 import (
 	"context"
+	"strings"
 	"testing"
 
-	"github.com/antinvestor/builder/internal/events"
 	"github.com/stretchr/testify/require"
+
+	"github.com/antinvestor/builder/internal/events"
 )
 
 func TestPatternArchitectureAnalyzer_BreakingChanges(t *testing.T) {
@@ -136,7 +138,7 @@ func TestPatternArchitectureAnalyzer_BreakingChanges(t *testing.T) {
 			assessment, err := analyzer.Analyze(context.Background(), req)
 			require.NoError(t, err)
 
-			require.Equal(t, tt.wantBreaking, len(assessment.BreakingChanges),
+			require.Len(t, assessment.BreakingChanges, tt.wantBreaking,
 				"breaking changes count mismatch")
 
 			if len(tt.wantBreakingTypes) > 0 {
@@ -228,7 +230,7 @@ type UserService struct {
 			assessment, err := analyzer.Analyze(context.Background(), req)
 			require.NoError(t, err)
 
-			require.Equal(t, tt.wantViolations, len(assessment.DependencyViolations))
+			require.Len(t, assessment.DependencyViolations, tt.wantViolations)
 		})
 	}
 }
@@ -290,7 +292,7 @@ type User struct {
 			assessment, err := analyzer.Analyze(context.Background(), req)
 			require.NoError(t, err)
 
-			require.Equal(t, tt.wantViolations, len(assessment.LayeringViolations))
+			require.Len(t, assessment.LayeringViolations, tt.wantViolations)
 		})
 	}
 }
@@ -299,11 +301,11 @@ func TestPatternArchitectureAnalyzer_InterfaceChanges(t *testing.T) {
 	analyzer := NewPatternArchitectureAnalyzer(nil)
 
 	tests := []struct {
-		name           string
-		baseline       map[string]string
-		current        map[string]string
-		wantChanges    int
-		wantBreaking   bool
+		name         string
+		baseline     map[string]string
+		current      map[string]string
+		wantChanges  int
+		wantBreaking bool
 	}{
 		{
 			name: "detects added method to interface",
@@ -389,7 +391,7 @@ func TestPatternArchitectureAnalyzer_InterfaceChanges(t *testing.T) {
 			assessment, err := analyzer.Analyze(context.Background(), req)
 			require.NoError(t, err)
 
-			require.Equal(t, tt.wantChanges, len(assessment.InterfaceChanges))
+			require.Len(t, assessment.InterfaceChanges, tt.wantChanges)
 
 			if tt.wantBreaking && len(assessment.InterfaceChanges) > 0 {
 				require.True(t, assessment.InterfaceChanges[0].IsBreaking)
@@ -474,7 +476,7 @@ func TestPatternArchitectureAnalyzer_PatternViolations(t *testing.T) {
 			assessment, err := analyzer.Analyze(context.Background(), req)
 			require.NoError(t, err)
 
-			require.Equal(t, tt.wantViolations, len(assessment.PatternViolations),
+			require.Len(t, assessment.PatternViolations, tt.wantViolations,
 				"pattern violations count mismatch")
 
 			if len(tt.wantTypes) > 0 {
@@ -584,14 +586,17 @@ func TestPatternArchitectureAnalyzer_Recommendations(t *testing.T) {
 	require.True(t, hasDocRecommendation, "expected documentation recommendation for breaking changes")
 }
 
-// Helper to generate a class with many methods
+// generateGiantClass creates a class with many methods for testing.
 func generateGiantClass(methodCount int) string {
-	code := `package giant
+	var builder strings.Builder
+	builder.WriteString(`package giant
 type GiantClass struct {}
-`
-	for i := 0; i < methodCount; i++ {
-		code += `func (g *GiantClass) Method` + string(rune('A'+i%26)) + `() {}
-`
+`)
+	for i := range methodCount {
+		builder.WriteString(`func (g *GiantClass) Method`)
+		builder.WriteRune(rune('A' + i%26))
+		builder.WriteString(`() {}
+`)
 	}
-	return code
+	return builder.String()
 }

@@ -5,9 +5,32 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/pitabwire/util"
+
 	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
 	"github.com/antinvestor/builder/internal/events"
-	"github.com/pitabwire/util"
+)
+
+// Architecture analysis constants.
+const (
+	// Score thresholds for architecture status.
+	scoreThresholdBlocked    = 50
+	scoreThresholdViolations = 70
+	scoreThresholdWarnings   = 90
+	scoreInitial             = 100
+
+	// Architecture layer levels for clean architecture validation.
+	layerPresentation   = 1
+	layerApplication    = 2
+	layerDomain         = 3
+	layerInfrastructure = 4
+
+	// Thresholds for recommendations.
+	methodsPerClassThreshold      = 20
+	dependencyViolationsThreshold = 3
+	patternViolationsThreshold    = 5
+	reviewScoreThreshold          = 50
+	largeFunctionLinesThreshold   = 50
 )
 
 // PatternArchitectureAnalyzer implements ArchitectureAnalyzer using pattern matching.
@@ -21,7 +44,10 @@ func NewPatternArchitectureAnalyzer(cfg *appconfig.ReviewerConfig) *PatternArchi
 }
 
 // Analyze performs architecture analysis on the provided code.
-func (a *PatternArchitectureAnalyzer) Analyze(ctx context.Context, req *ArchitectureAnalysisRequest) (*events.ArchitectureAssessment, error) {
+func (a *PatternArchitectureAnalyzer) Analyze(
+	ctx context.Context,
+	req *ArchitectureAnalysisRequest,
+) (*events.ArchitectureAssessment, error) {
 	log := util.Log(ctx)
 	log.Info("starting architecture analysis",
 		"file_count", len(req.FileContents),
@@ -30,7 +56,7 @@ func (a *PatternArchitectureAnalyzer) Analyze(ctx context.Context, req *Architec
 	)
 
 	assessment := &events.ArchitectureAssessment{
-		OverallArchitectureScore:   100,
+		OverallArchitectureScore:   scoreInitial,
 		ArchitectureStatus:         events.ArchitectureStatusCompliant,
 		BreakingChanges:            []events.BreakingChange{},
 		DependencyViolations:       []events.DependencyViolation{},
@@ -74,7 +100,9 @@ func (a *PatternArchitectureAnalyzer) Analyze(ctx context.Context, req *Architec
 	assessment.ArchitectureStatus = a.determineArchitectureStatus(assessment)
 
 	// Determine if architecture review is required
-	assessment.RequiresArchitectureReview, assessment.ArchitectureReviewReason = a.determineArchitectureReviewRequired(assessment)
+	assessment.RequiresArchitectureReview, assessment.ArchitectureReviewReason = a.determineArchitectureReviewRequired(
+		assessment,
+	)
 
 	log.Info("architecture analysis complete",
 		"score", assessment.OverallArchitectureScore,
@@ -89,7 +117,12 @@ func (a *PatternArchitectureAnalyzer) Analyze(ctx context.Context, req *Architec
 }
 
 // detectBreakingChanges detects breaking changes between baseline and current.
-func (a *PatternArchitectureAnalyzer) detectBreakingChanges(patches []events.Patch, baseline, current map[string]string) []events.BreakingChange {
+//
+//nolint:gocognit // complexity from necessary switch-case file type handling
+func (a *PatternArchitectureAnalyzer) detectBreakingChanges(
+	_ []events.Patch,
+	baseline, current map[string]string,
+) []events.BreakingChange {
 	var changes []events.BreakingChange
 
 	// Check for deleted files (potential breaking change)
@@ -110,7 +143,7 @@ func (a *PatternArchitectureAnalyzer) detectBreakingChanges(patches []events.Pat
 
 	// Check for removed or changed function signatures
 	for filePath, currentContent := range current {
-		if baselineContent, exists := baseline[filePath]; exists {
+		if baselineContent, exists := baseline[filePath]; exists { //nolint:nestif // comparison logic requires nesting
 			// Compare function signatures
 			baselineFuncs := extractFunctionSignatures(baselineContent, filePath)
 			currentFuncs := extractFunctionSignatures(currentContent, filePath)
@@ -156,7 +189,10 @@ func (a *PatternArchitectureAnalyzer) detectBreakingChanges(patches []events.Pat
 }
 
 // detectDependencyViolations detects dependency rule violations.
-func (a *PatternArchitectureAnalyzer) detectDependencyViolations(files map[string]string, language string) []events.DependencyViolation {
+func (a *PatternArchitectureAnalyzer) detectDependencyViolations(
+	files map[string]string,
+	language string,
+) []events.DependencyViolation {
 	var violations []events.DependencyViolation
 
 	// Define forbidden dependencies based on common architecture rules
@@ -207,24 +243,27 @@ func (a *PatternArchitectureAnalyzer) detectDependencyViolations(files map[strin
 }
 
 // detectLayeringViolations detects architectural layer violations.
-func (a *PatternArchitectureAnalyzer) detectLayeringViolations(files map[string]string, language string) []events.LayeringViolation {
+func (a *PatternArchitectureAnalyzer) detectLayeringViolations(
+	files map[string]string,
+	language string,
+) []events.LayeringViolation {
 	var violations []events.LayeringViolation
 
 	// Standard layer order (from outer to inner):
 	// presentation -> application -> domain -> infrastructure
 	layerOrder := map[string]int{
-		"handlers":     1,
-		"controllers":  1,
-		"presentation": 1,
-		"application":  2,
-		"business":     2,
-		"service":      2,
-		"domain":       3,
-		"models":       3,
-		"entities":     3,
-		"repository":   4,
-		"infrastructure": 4,
-		"database":     4,
+		"handlers":       layerPresentation,
+		"controllers":    layerPresentation,
+		"presentation":   layerPresentation,
+		"application":    layerApplication,
+		"business":       layerApplication,
+		"service":        layerApplication,
+		"domain":         layerDomain,
+		"models":         layerDomain,
+		"entities":       layerDomain,
+		"repository":     layerInfrastructure,
+		"infrastructure": layerInfrastructure,
+		"database":       layerInfrastructure,
 	}
 
 	for filePath, content := range files {
@@ -263,7 +302,12 @@ func (a *PatternArchitectureAnalyzer) detectLayeringViolations(files map[string]
 }
 
 // detectInterfaceChanges detects changes to interfaces.
-func (a *PatternArchitectureAnalyzer) detectInterfaceChanges(patches []events.Patch, baseline, current map[string]string) []events.InterfaceChange {
+//
+//nolint:gocognit // complexity from necessary pattern matching logic
+func (a *PatternArchitectureAnalyzer) detectInterfaceChanges(
+	_ []events.Patch,
+	baseline, current map[string]string,
+) []events.InterfaceChange {
 	var changes []events.InterfaceChange
 
 	for filePath, currentContent := range current {
@@ -320,14 +364,17 @@ func (a *PatternArchitectureAnalyzer) detectInterfaceChanges(patches []events.Pa
 }
 
 // detectPatternViolations detects design pattern violations.
-func (a *PatternArchitectureAnalyzer) detectPatternViolations(files map[string]string, language string) []events.PatternViolation {
+func (a *PatternArchitectureAnalyzer) detectPatternViolations(
+	files map[string]string,
+	language string,
+) []events.PatternViolation {
 	var violations []events.PatternViolation
 
 	for filePath, content := range files {
 		// Check for common anti-patterns
 
 		// God object: file with too many responsibilities
-		if countMethods(content, language) > 20 {
+		if countMethods(content, language) > methodsPerClassThreshold {
 			violations = append(violations, events.PatternViolation{
 				PatternName:    "Single Responsibility",
 				ViolationType:  "god_object",
@@ -387,11 +434,13 @@ func (a *PatternArchitectureAnalyzer) detectPatternViolations(files map[string]s
 }
 
 // generateRecommendations generates architecture recommendations.
-func (a *PatternArchitectureAnalyzer) generateRecommendations(assessment *events.ArchitectureAssessment) []events.ArchitectureRecommendation {
+func (a *PatternArchitectureAnalyzer) generateRecommendations(
+	assessment *events.ArchitectureAssessment,
+) []events.ArchitectureRecommendation {
 	var recommendations []events.ArchitectureRecommendation
 
 	// Recommend refactoring if many dependency violations
-	if len(assessment.DependencyViolations) > 3 {
+	if len(assessment.DependencyViolations) > dependencyViolationsThreshold {
 		recommendations = append(recommendations, events.ArchitectureRecommendation{
 			Category:       "Architecture",
 			Recommendation: "Refactor to fix dependency violations",
@@ -427,7 +476,7 @@ func (a *PatternArchitectureAnalyzer) generateRecommendations(assessment *events
 	}
 
 	// Recommend addressing pattern violations
-	if len(assessment.PatternViolations) > 5 {
+	if len(assessment.PatternViolations) > patternViolationsThreshold {
 		recommendations = append(recommendations, events.ArchitectureRecommendation{
 			Category:       "Design",
 			Recommendation: "Address design pattern violations",
@@ -445,7 +494,7 @@ func (a *PatternArchitectureAnalyzer) calculateArchitectureScore(assessment *eve
 
 	// Deduct for breaking changes
 	for _, bc := range assessment.BreakingChanges {
-		switch bc.Severity {
+		switch bc.Severity { //nolint:exhaustive // default handles low/info severities
 		case events.ReviewIssueSeverityCritical:
 			score -= 25
 		case events.ReviewIssueSeverityHigh:
@@ -459,7 +508,7 @@ func (a *PatternArchitectureAnalyzer) calculateArchitectureScore(assessment *eve
 
 	// Deduct for dependency violations
 	for _, dv := range assessment.DependencyViolations {
-		switch dv.Severity {
+		switch dv.Severity { //nolint:exhaustive // default handles low/info severities
 		case events.ReviewIssueSeverityCritical:
 			score -= 20
 		case events.ReviewIssueSeverityHigh:
@@ -473,7 +522,7 @@ func (a *PatternArchitectureAnalyzer) calculateArchitectureScore(assessment *eve
 
 	// Deduct for layering violations
 	for _, lv := range assessment.LayeringViolations {
-		switch lv.Severity {
+		switch lv.Severity { //nolint:exhaustive // default handles low/info/medium severities
 		case events.ReviewIssueSeverityCritical:
 			score -= 15
 		case events.ReviewIssueSeverityHigh:
@@ -511,7 +560,9 @@ func (a *PatternArchitectureAnalyzer) calculateArchitectureScore(assessment *eve
 }
 
 // determineArchitectureStatus determines the overall architecture status.
-func (a *PatternArchitectureAnalyzer) determineArchitectureStatus(assessment *events.ArchitectureAssessment) events.ArchitectureStatus {
+func (a *PatternArchitectureAnalyzer) determineArchitectureStatus(
+	assessment *events.ArchitectureAssessment,
+) events.ArchitectureStatus {
 	// Check for critical breaking changes
 	for _, bc := range assessment.BreakingChanges {
 		if bc.Severity == events.ReviewIssueSeverityCritical {
@@ -524,20 +575,23 @@ func (a *PatternArchitectureAnalyzer) determineArchitectureStatus(assessment *ev
 		return events.ArchitectureStatusViolations
 	}
 
-	// Check score thresholds
-	if assessment.OverallArchitectureScore < 50 {
+	// Check score thresholds.
+	switch {
+	case assessment.OverallArchitectureScore < scoreThresholdBlocked:
 		return events.ArchitectureStatusBlocked
-	} else if assessment.OverallArchitectureScore < 70 {
+	case assessment.OverallArchitectureScore < scoreThresholdViolations:
 		return events.ArchitectureStatusViolations
-	} else if assessment.OverallArchitectureScore < 90 {
+	case assessment.OverallArchitectureScore < scoreThresholdWarnings:
 		return events.ArchitectureStatusWarnings
+	default:
+		return events.ArchitectureStatusCompliant
 	}
-
-	return events.ArchitectureStatusCompliant
 }
 
 // determineArchitectureReviewRequired determines if manual architecture review is needed.
-func (a *PatternArchitectureAnalyzer) determineArchitectureReviewRequired(assessment *events.ArchitectureAssessment) (bool, string) {
+func (a *PatternArchitectureAnalyzer) determineArchitectureReviewRequired(
+	assessment *events.ArchitectureAssessment,
+) (bool, string) {
 	if len(assessment.BreakingChanges) > 0 {
 		return true, "Breaking changes detected that may affect consumers"
 	}
@@ -552,11 +606,11 @@ func (a *PatternArchitectureAnalyzer) determineArchitectureReviewRequired(assess
 		}
 	}
 
-	if assessment.OverallArchitectureScore < 50 {
+	if assessment.OverallArchitectureScore < reviewScoreThreshold {
 		return true, "Low architecture score requires review"
 	}
 
-	if len(assessment.DependencyViolations) > 5 {
+	if len(assessment.DependencyViolations) > patternViolationsThreshold {
 		return true, "Multiple dependency violations require review"
 	}
 
@@ -565,9 +619,9 @@ func (a *PatternArchitectureAnalyzer) determineArchitectureReviewRequired(assess
 
 // Helper functions
 
-func isExportedFile(filePath, content string) bool {
-	// In Go, any public symbol makes the file potentially exported
-	// Check for exported (capitalized) symbols
+func isExportedFile(_, content string) bool {
+	// In Go, any public symbol makes the file potentially exported.
+	// Check for exported (capitalized) symbols.
 	exportedPattern := regexp.MustCompile(`(?m)^func\s+[A-Z]|^type\s+[A-Z]|^var\s+[A-Z]|^const\s+[A-Z]`)
 	return exportedPattern.MatchString(content)
 }
@@ -580,7 +634,7 @@ func extractFunctionSignatures(content, filePath string) map[string]string {
 		funcPattern := regexp.MustCompile(`func\s+(?:\([^)]+\)\s+)?(\w+)\s*\([^)]*\)(?:\s*\([^)]*\)|[^{]*)?`)
 		matches := funcPattern.FindAllStringSubmatch(content, -1)
 		for _, match := range matches {
-			if len(match) >= 2 {
+			if len(match) >= 2 { //nolint:mnd // regex capture group check
 				signatures[match[1]] = match[0]
 			}
 		}
@@ -591,7 +645,7 @@ func extractFunctionSignatures(content, filePath string) map[string]string {
 		funcPattern := regexp.MustCompile(`(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\([^)]*\)`)
 		matches := funcPattern.FindAllStringSubmatch(content, -1)
 		for _, match := range matches {
-			if len(match) >= 2 {
+			if len(match) >= 2 { //nolint:mnd // regex capture group check
 				signatures[match[1]] = match[0]
 			}
 		}
@@ -600,7 +654,7 @@ func extractFunctionSignatures(content, filePath string) map[string]string {
 		arrowPattern := regexp.MustCompile(`export\s+(?:const|let)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>`)
 		arrowMatches := arrowPattern.FindAllStringSubmatch(content, -1)
 		for _, match := range arrowMatches {
-			if len(match) >= 2 {
+			if len(match) >= 2 { //nolint:mnd // regex capture group check
 				signatures[match[1]] = match[0]
 			}
 		}
@@ -659,7 +713,7 @@ func extractStructFields(content string) map[string]map[string]bool {
 	matches := structPattern.FindAllStringSubmatch(content, -1)
 
 	for _, match := range matches {
-		if len(match) >= 3 {
+		if len(match) >= 3 { //nolint:mnd // regex capture group check
 			structName := match[1]
 			fieldsBlock := match[2]
 			fields := make(map[string]bool)
@@ -668,7 +722,7 @@ func extractStructFields(content string) map[string]map[string]bool {
 			lines := strings.Split(fieldsBlock, "\n")
 			for _, line := range lines {
 				fieldMatch := fieldPattern.FindStringSubmatch(line)
-				if len(fieldMatch) >= 2 {
+				if len(fieldMatch) >= 2 { //nolint:mnd // regex capture group check
 					fields[fieldMatch[1]] = true
 				}
 			}
@@ -699,6 +753,7 @@ func detectLayer(filePath string) string {
 	return ""
 }
 
+//nolint:gocognit // complexity from multi-language import pattern matching
 func extractImports(content, language string) []string {
 	var imports []string
 
@@ -726,15 +781,15 @@ func extractImports(content, language string) []string {
 				imports = append(imports, match[2])
 			}
 		}
-	case "javascript", "typescript":
+	case langJavaScript, langTypeScript:
 		importPattern := regexp.MustCompile(`import\s+.*from\s+['"]([^'"]+)['"]`)
 		matches := importPattern.FindAllStringSubmatch(content, -1)
 		for _, match := range matches {
-			if len(match) >= 2 {
+			if len(match) >= 2 { //nolint:mnd // regex capture group check
 				imports = append(imports, match[1])
 			}
 		}
-	case "python":
+	case langPython:
 		importPattern := regexp.MustCompile(`(?:from\s+(\S+)\s+)?import\s+(\S+)`)
 		matches := importPattern.FindAllStringSubmatch(content, -1)
 		for _, match := range matches {
@@ -771,7 +826,7 @@ func extractInterfaces(content, filePath string) map[string]map[string]bool {
 	matches := interfacePattern.FindAllStringSubmatch(content, -1)
 
 	for _, match := range matches {
-		if len(match) >= 3 {
+		if len(match) >= 3 { //nolint:mnd // regex capture group check
 			ifaceName := match[1]
 			methodsBlock := match[2]
 			methods := make(map[string]bool)
@@ -780,7 +835,7 @@ func extractInterfaces(content, filePath string) map[string]map[string]bool {
 			lines := strings.Split(methodsBlock, "\n")
 			for _, line := range lines {
 				methodMatch := methodPattern.FindStringSubmatch(line)
-				if len(methodMatch) >= 2 {
+				if len(methodMatch) >= 2 { //nolint:mnd // regex capture group check
 					methods[methodMatch[1]] = true
 				}
 			}
@@ -796,11 +851,11 @@ func countMethods(content, language string) int {
 	var pattern *regexp.Regexp
 
 	switch language {
-	case "go":
+	case langGo:
 		pattern = regexp.MustCompile(`func\s+(?:\([^)]+\)\s+)?\w+\s*\(`)
-	case "javascript", "typescript":
+	case langJavaScript, langTypeScript:
 		pattern = regexp.MustCompile(`(?:function\s+\w+|(?:async\s+)?(?:\w+)\s*\([^)]*\)\s*[:{])`)
-	case "python":
+	case langPython:
 		pattern = regexp.MustCompile(`def\s+\w+\s*\(`)
 	default:
 		return 0
@@ -816,11 +871,11 @@ func detectLargeFunctions(content, language string) []string {
 	var funcPattern *regexp.Regexp
 
 	switch language {
-	case "go":
+	case langGo:
 		funcPattern = regexp.MustCompile(`func\s+(?:\([^)]+\)\s+)?(\w+)\s*\([^{]*\{`)
-	case "javascript", "typescript":
+	case langJavaScript, langTypeScript:
 		funcPattern = regexp.MustCompile(`function\s+(\w+)\s*\([^{]*\{`)
-	case "python":
+	case langPython:
 		funcPattern = regexp.MustCompile(`def\s+(\w+)\s*\(`)
 	default:
 		return largeFuncs
@@ -828,7 +883,7 @@ func detectLargeFunctions(content, language string) []string {
 
 	matches := funcPattern.FindAllStringSubmatchIndex(content, -1)
 	for i, match := range matches {
-		if len(match) >= 4 {
+		if len(match) >= 4 { //nolint:mnd // regex submatch index check
 			funcName := content[match[2]:match[3]]
 			startPos := match[0]
 
@@ -845,7 +900,7 @@ func detectLargeFunctions(content, language string) []string {
 			}
 
 			lineCount := strings.Count(content[startPos:endPos], "\n")
-			if lineCount > 50 {
+			if lineCount > largeFunctionLinesThreshold {
 				largeFuncs = append(largeFuncs, funcName)
 			}
 		}
@@ -875,15 +930,15 @@ func containsServiceLocator(content string) bool {
 
 func hasGlobalState(content, language string) bool {
 	switch language {
-	case "go":
+	case langGo:
 		// Check for package-level var declarations that are mutable
 		globalVarPattern := regexp.MustCompile(`(?m)^var\s+\w+\s+=`)
 		return globalVarPattern.MatchString(content)
-	case "javascript", "typescript":
+	case langJavaScript, langTypeScript:
 		// Check for global variables
 		globalPattern := regexp.MustCompile(`(?m)^(?:let|var)\s+\w+\s*=`)
 		return globalPattern.MatchString(content)
-	case "python":
+	case langPython:
 		// Check for module-level mutable state
 		// This is harder to detect accurately
 		return false

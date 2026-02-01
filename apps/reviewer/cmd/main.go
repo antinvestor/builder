@@ -12,6 +12,7 @@ import (
 	"github.com/antinvestor/builder/apps/reviewer/service/review"
 )
 
+//nolint:funlen // service bootstrap requires setup of all components
 func main() {
 	ctx := context.Background()
 
@@ -74,7 +75,14 @@ func main() {
 	reviewRequestSubscriber := frame.WithRegisterSubscriber(
 		cfg.QueueReviewRequestName,
 		cfg.QueueReviewRequestURI,
-		review.NewReviewRequestHandler(&cfg, securityAnalyzer, architectureAnalyzer, decisionEngine, killSwitchService, evtsMan),
+		review.NewRequestHandler(
+			&cfg,
+			securityAnalyzer,
+			architectureAnalyzer,
+			decisionEngine,
+			killSwitchService,
+			evtsMan,
+		),
 	)
 
 	// ==========================================================================
@@ -83,30 +91,30 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy","service":"reviewer"}`))
+		_, _ = w.Write([]byte(`{"status":"healthy","service":"reviewer"}`))
 	})
 
-	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ready","service":"reviewer"}`))
+		_, _ = w.Write([]byte(`{"status":"ready","service":"reviewer"}`))
 	})
 
 	// Kill switch status endpoint
 	mux.HandleFunc("/api/v1/killswitch/status", func(w http.ResponseWriter, r *http.Request) {
-		status, err := killSwitchService.GetStatus(r.Context())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		status, statusErr := killSwitchService.GetStatus(r.Context())
+		if statusErr != nil {
+			http.Error(w, statusErr.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		// TODO: Marshal status to JSON
 		_ = status
-		w.Write([]byte(`{"global_active":false}`))
+		_, _ = w.Write([]byte(`{"global_active":false}`))
 	})
 
 	// ==========================================================================

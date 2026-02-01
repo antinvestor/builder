@@ -9,8 +9,19 @@ import (
 	"github.com/antinvestor/builder/internal/events"
 )
 
-// ReviewRequestHandler handles incoming review requests.
-type ReviewRequestHandler struct {
+// Language constants used for detection.
+const (
+	langGo         = "go"
+	langPython     = "python"
+	langJavaScript = "javascript"
+	langTypeScript = "typescript"
+	langJava       = "java"
+	langRust       = "rust"
+	langUnknown    = "unknown"
+)
+
+// RequestHandler handles incoming review requests.
+type RequestHandler struct {
 	cfg                  *appconfig.ReviewerConfig
 	securityAnalyzer     SecurityAnalyzer
 	architectureAnalyzer ArchitectureAnalyzer
@@ -19,16 +30,16 @@ type ReviewRequestHandler struct {
 	eventsMan            EventsEmitter
 }
 
-// NewReviewRequestHandler creates a new review request handler.
-func NewReviewRequestHandler(
+// NewRequestHandler creates a new review request handler.
+func NewRequestHandler(
 	cfg *appconfig.ReviewerConfig,
 	securityAnalyzer SecurityAnalyzer,
 	architectureAnalyzer ArchitectureAnalyzer,
 	decisionEngine DecisionEngine,
 	killSwitchService KillSwitchService,
 	eventsMan EventsEmitter,
-) *ReviewRequestHandler {
-	return &ReviewRequestHandler{
+) *RequestHandler {
+	return &RequestHandler{
 		cfg:                  cfg,
 		securityAnalyzer:     securityAnalyzer,
 		architectureAnalyzer: architectureAnalyzer,
@@ -39,9 +50,9 @@ func NewReviewRequestHandler(
 }
 
 // Handle processes incoming review request messages.
-func (h *ReviewRequestHandler) Handle(
+func (h *RequestHandler) Handle(
 	ctx context.Context,
-	headers map[string]string,
+	_ map[string]string,
 	payload []byte,
 ) error {
 	var request events.ComprehensiveReviewRequestedPayload
@@ -109,36 +120,36 @@ func convertPatchReferences(refs []events.PatchReference) []events.Patch {
 	return patches
 }
 
-func (h *ReviewRequestHandler) detectLanguage(patches []events.Patch) string {
-	// Simple language detection from file extensions
+func (h *RequestHandler) detectLanguage(patches []events.Patch) string {
+	// Simple language detection from file extensions.
 	for _, patch := range patches {
 		ext := getFileExtension(patch.FilePath)
 		switch ext {
 		case ".go":
-			return "go"
+			return langGo
 		case ".py":
-			return "python"
+			return langPython
 		case ".js", ".jsx":
-			return "javascript"
+			return langJavaScript
 		case ".ts", ".tsx":
-			return "typescript"
+			return langTypeScript
 		case ".java":
-			return "java"
+			return langJava
 		case ".rs":
-			return "rust"
+			return langRust
 		}
 	}
-	return "unknown"
+	return langUnknown
 }
 
-func (h *ReviewRequestHandler) getIterationNumber(request *events.ComprehensiveReviewRequestedPayload) int {
+func (h *RequestHandler) getIterationNumber(request *events.ComprehensiveReviewRequestedPayload) int {
 	if request.Context != nil {
 		return request.Context.IterationNumber
 	}
 	return 0
 }
 
-func (h *ReviewRequestHandler) emitAbort(ctx context.Context, executionID events.ExecutionID, reason string) error {
+func (h *RequestHandler) emitAbort(ctx context.Context, executionID events.ExecutionID, reason string) error {
 	return h.eventsMan.Emit(ctx, "feature.review.abort", &events.FeatureAbortRequestedPayload{
 		ExecutionID:      executionID,
 		AbortReason:      events.AbortReasonKillSwitch,
@@ -147,7 +158,11 @@ func (h *ReviewRequestHandler) emitAbort(ctx context.Context, executionID events
 	})
 }
 
-func (h *ReviewRequestHandler) emitDecision(ctx context.Context, executionID events.ExecutionID, decision *DecisionResult) error {
+func (h *RequestHandler) emitDecision(
+	ctx context.Context,
+	executionID events.ExecutionID,
+	decision *DecisionResult,
+) error {
 	eventName := "feature.review.completed"
 	return h.eventsMan.Emit(ctx, eventName, &events.ComprehensiveReviewCompletedPayload{
 		ExecutionID:       executionID,

@@ -8,9 +8,20 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/pitabwire/util"
+
 	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
 	"github.com/antinvestor/builder/internal/events"
-	"github.com/pitabwire/util"
+)
+
+// Security analysis constants.
+const (
+	securityScoreInitial           = 100
+	securityScoreThresholdCritical = 50
+	securityScoreThresholdWarnings = 80
+	securityReviewScoreThreshold   = 50
+	secretContextLines             = 5
+	minCredentialLength            = 8
 )
 
 // securityPattern defines a pattern to detect security issues.
@@ -51,12 +62,16 @@ func NewPatternSecurityAnalyzer(cfg *appconfig.ReviewerConfig) *PatternSecurityA
 }
 
 // initSecurityPatterns initializes security vulnerability patterns.
+//
+//nolint:funlen // pattern list definition requires many lines
 func initSecurityPatterns() []securityPattern {
 	return []securityPattern{
 		// SQL Injection patterns
 		{
-			Name:        "SQL Injection - String Concatenation",
-			Pattern:     regexp.MustCompile(`(?i)(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)\s+.*\+\s*("|')?\s*\w+`),
+			Name: "SQL Injection - String Concatenation",
+			Pattern: regexp.MustCompile(
+				`(?i)(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)\s+.*\+\s*("|')?\s*\w+`,
+			),
 			PatternType: events.InsecurePatternSQLInjection,
 			Severity:    events.VulnerabilitySeverityCritical,
 			CWE:         "CWE-89",
@@ -66,7 +81,7 @@ func initSecurityPatterns() []securityPattern {
 		},
 		{
 			Name:        "SQL Injection - fmt.Sprintf",
-			Pattern:     regexp.MustCompile(`(?i)(db\.|sql\.).*fmt\.Sprintf.*SELECT|INSERT|UPDATE|DELETE`),
+			Pattern:     regexp.MustCompile(`(?i)fmt\.Sprintf\s*\(\s*["'].*(?:SELECT|INSERT|UPDATE|DELETE)`),
 			PatternType: events.InsecurePatternSQLInjection,
 			Severity:    events.VulnerabilitySeverityCritical,
 			CWE:         "CWE-89",
@@ -122,8 +137,10 @@ func initSecurityPatterns() []securityPattern {
 		},
 		// Command Injection patterns
 		{
-			Name:        "Command Injection - exec",
-			Pattern:     regexp.MustCompile(`(?i)(exec|system|popen|subprocess\.call|subprocess\.run|os\.system|shell_exec)\s*\([^)]*\+`),
+			Name: "Command Injection - exec",
+			Pattern: regexp.MustCompile(
+				`(?i)(exec|system|popen|subprocess\.call|subprocess\.run|os\.system|shell_exec)\s*\([^)]*\+`,
+			),
 			PatternType: events.InsecurePatternCommandInjection,
 			Severity:    events.VulnerabilitySeverityCritical,
 			CWE:         "CWE-78",
@@ -144,8 +161,10 @@ func initSecurityPatterns() []securityPattern {
 		},
 		// Path Traversal patterns
 		{
-			Name:        "Path Traversal - User Input",
-			Pattern:     regexp.MustCompile(`(?i)(os\.Open|ioutil\.ReadFile|os\.ReadFile|open\(|fopen|file_get_contents)\s*\([^)]*(\+|fmt\.Sprintf|f"|%s)`),
+			Name: "Path Traversal - User Input",
+			Pattern: regexp.MustCompile(
+				`(?i)(os\.Open|ioutil\.ReadFile|os\.ReadFile|open\(|fopen|file_get_contents)\s*\([^)]*(\+|fmt\.Sprintf|f"|%s)`,
+			),
 			PatternType: events.InsecurePatternPathTraversal,
 			Severity:    events.VulnerabilitySeverityHigh,
 			CWE:         "CWE-22",
@@ -166,8 +185,10 @@ func initSecurityPatterns() []securityPattern {
 		},
 		// SSRF patterns
 		{
-			Name:        "SSRF - User-Controlled URL",
-			Pattern:     regexp.MustCompile(`(?i)(http\.Get|http\.Post|requests\.get|requests\.post|fetch|axios|urllib\.request)\s*\([^)]*(\+|%s|f"|\${)`),
+			Name: "SSRF - User-Controlled URL",
+			Pattern: regexp.MustCompile(
+				`(?i)(http\.Get|http\.Post|requests\.get|requests\.post|fetch|axios|urllib\.request)\s*\([^)]*(\+|%s|f"|\${)`,
+			),
 			PatternType: events.InsecurePatternSSRF,
 			Severity:    events.VulnerabilitySeverityHigh,
 			CWE:         "CWE-918",
@@ -177,8 +198,10 @@ func initSecurityPatterns() []securityPattern {
 		},
 		// Open Redirect patterns
 		{
-			Name:        "Open Redirect - User URL",
-			Pattern:     regexp.MustCompile(`(?i)(redirect|location\.href|window\.location|http\.Redirect)\s*[=(]\s*[^"']+(\+|req\.|request\.)`),
+			Name: "Open Redirect - User URL",
+			Pattern: regexp.MustCompile(
+				`(?i)(redirect|location\.href|window\.location|http\.Redirect)\s*[=(]\s*[^"']+(\+|req\.|request\.)`,
+			),
 			PatternType: events.InsecurePatternOpenRedirect,
 			Severity:    events.VulnerabilitySeverityMedium,
 			CWE:         "CWE-601",
@@ -198,8 +221,10 @@ func initSecurityPatterns() []securityPattern {
 			Remediation: "Use environment variables or a secrets manager instead of hardcoding credentials",
 		},
 		{
-			Name:        "Hardcoded API Key",
-			Pattern:     regexp.MustCompile(`(?i)(api_key|apikey|api-key|access_token|auth_token)\s*[:=]\s*["'][a-zA-Z0-9_\-]{16,}["']`),
+			Name: "Hardcoded API Key",
+			Pattern: regexp.MustCompile(
+				`(?i)(api_key|apikey|api-key|access_token|auth_token)\s*[:=]\s*["'][a-zA-Z0-9_\-]{16,}["']`,
+			),
 			PatternType: events.InsecurePatternHardcodedCreds,
 			Severity:    events.VulnerabilitySeverityHigh,
 			CWE:         "CWE-798",
@@ -342,6 +367,8 @@ func initSecurityPatterns() []securityPattern {
 }
 
 // initSecretPatterns initializes secret detection patterns.
+//
+//nolint:funlen // pattern list definition requires many lines
 func initSecretPatterns() []secretPattern {
 	return []secretPattern{
 		{
@@ -357,8 +384,10 @@ func initSecretPatterns() []secretPattern {
 			Description: "AWS Secret Access Key detected",
 		},
 		{
-			Name:        "GitHub Token",
-			Pattern:     regexp.MustCompile(`(?i)(ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|ghu_[A-Za-z0-9]{36}|ghs_[A-Za-z0-9]{36}|ghr_[A-Za-z0-9]{36})`),
+			Name: "GitHub Token",
+			Pattern: regexp.MustCompile(
+				`(?i)(ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|ghu_[A-Za-z0-9]{36}|ghs_[A-Za-z0-9]{36}|ghr_[A-Za-z0-9]{36})`,
+			),
 			SecretType:  "github_token",
 			Description: "GitHub personal access token detected",
 		},
@@ -456,12 +485,15 @@ func initSecretPatterns() []secretPattern {
 }
 
 // Analyze performs security analysis on the provided code.
-func (a *PatternSecurityAnalyzer) Analyze(ctx context.Context, req *SecurityAnalysisRequest) (*events.SecurityAssessment, error) {
+func (a *PatternSecurityAnalyzer) Analyze(
+	ctx context.Context,
+	req *SecurityAnalysisRequest,
+) (*events.SecurityAssessment, error) {
 	log := util.Log(ctx)
 	log.Info("starting security analysis", "file_count", len(req.FileContents), "patch_count", len(req.Patches))
 
 	assessment := &events.SecurityAssessment{
-		OverallSecurityScore:   100,
+		OverallSecurityScore:   securityScoreInitial,
 		SecurityStatus:         events.SecurityStatusSecure,
 		VulnerabilitiesFound:   []events.Vulnerability{},
 		SecretsDetected:        []events.SecretFinding{},
@@ -618,19 +650,19 @@ func (a *PatternSecurityAnalyzer) calculateSecurityScore(assessment *events.Secu
 
 	// Deduct for insecure patterns
 	for _, pattern := range assessment.InsecurePatterns {
-		switch {
-		case pattern.PatternType == events.InsecurePatternSQLInjection ||
-			pattern.PatternType == events.InsecurePatternCommandInjection ||
-			pattern.PatternType == events.InsecurePatternInsecureDeserialize ||
-			pattern.PatternType == events.InsecurePatternSSRF ||
-			pattern.PatternType == events.InsecurePatternPathTraversal:
+		switch pattern.PatternType { //nolint:exhaustive // default handles remaining types
+		case events.InsecurePatternSQLInjection,
+			events.InsecurePatternCommandInjection,
+			events.InsecurePatternInsecureDeserialize,
+			events.InsecurePatternSSRF,
+			events.InsecurePatternPathTraversal:
 			// These are promoted to vulnerabilities and scored separately.
 			// Skip to avoid double-penalty.
 			continue
-		case pattern.PatternType == events.InsecurePatternXSS:
+		case events.InsecurePatternXSS:
 			score -= 15
-		case pattern.PatternType == events.InsecurePatternHardcodedCreds ||
-			pattern.PatternType == events.InsecurePatternInsecureTLS:
+		case events.InsecurePatternHardcodedCreds,
+			events.InsecurePatternInsecureTLS:
 			score -= 12
 		default:
 			score -= 8
@@ -644,7 +676,7 @@ func (a *PatternSecurityAnalyzer) calculateSecurityScore(assessment *events.Secu
 
 	// Deduct for security regressions
 	for _, reg := range assessment.SecurityRegressions {
-		switch reg.Severity {
+		switch reg.Severity { //nolint:exhaustive // default handles low/medium severities
 		case events.VulnerabilitySeverityCritical:
 			score -= 35
 		case events.VulnerabilitySeverityHigh:
@@ -685,18 +717,21 @@ func (a *PatternSecurityAnalyzer) determineSecurityStatus(assessment *events.Sec
 		}
 	}
 
-	// Check score thresholds
-	if assessment.OverallSecurityScore < 50 {
+	// Check score thresholds.
+	switch {
+	case assessment.OverallSecurityScore < securityScoreThresholdCritical:
 		return events.SecurityStatusCritical
-	} else if assessment.OverallSecurityScore < 80 {
+	case assessment.OverallSecurityScore < securityScoreThresholdWarnings:
 		return events.SecurityStatusWarnings
+	default:
+		return events.SecurityStatusSecure
 	}
-
-	return events.SecurityStatusSecure
 }
 
 // determineSecurityReviewRequired determines if manual security review is needed.
-func (a *PatternSecurityAnalyzer) determineSecurityReviewRequired(assessment *events.SecurityAssessment) (bool, string) {
+func (a *PatternSecurityAnalyzer) determineSecurityReviewRequired(
+	assessment *events.SecurityAssessment,
+) (bool, string) {
 	if len(assessment.SecretsDetected) > 0 {
 		return true, fmt.Sprintf("Found %d potential secrets in the code", len(assessment.SecretsDetected))
 	}
@@ -719,7 +754,7 @@ func (a *PatternSecurityAnalyzer) determineSecurityReviewRequired(assessment *ev
 		return true, fmt.Sprintf("Found %d critical insecure patterns", criticalPatterns)
 	}
 
-	if assessment.OverallSecurityScore < 50 {
+	if assessment.OverallSecurityScore < securityReviewScoreThreshold {
 		return true, fmt.Sprintf("Low security score: %d/100", assessment.OverallSecurityScore)
 	}
 
@@ -781,8 +816,8 @@ func extractCodeSnippet(lines []string, lineStart, lineEnd int) string {
 	// Get up to 3 lines of context
 	start := lineStart - 1
 	end := lineEnd
-	if end-start > 5 {
-		end = start + 5
+	if end-start > secretContextLines {
+		end = start + secretContextLines
 	}
 
 	return strings.Join(lines[start:end], "\n")
@@ -832,7 +867,7 @@ func isTestOrExample(filePath, matchedText string) bool {
 }
 
 func redactSecret(secret string) string {
-	if len(secret) <= 8 {
+	if len(secret) <= minCredentialLength {
 		return "***"
 	}
 	return secret[:4] + "..." + secret[len(secret)-4:]
@@ -853,7 +888,7 @@ func generateVulnID(filePath string, line int) string {
 }
 
 func patternTypeToVulnType(pt events.InsecurePatternType) events.VulnerabilityType {
-	switch pt {
+	switch pt { //nolint:exhaustive // default handles remaining pattern types
 	case events.InsecurePatternSQLInjection:
 		return events.VulnerabilityTypeInjection
 	case events.InsecurePatternXSS:
