@@ -82,53 +82,11 @@ type DecisionResult struct {
 }
 
 // =============================================================================
-// Stub Implementations
+// Stub Implementations (Only for components not yet implemented)
 // =============================================================================
 
-// PatternSecurityAnalyzer is a pattern-based security analyzer.
-type PatternSecurityAnalyzer struct {
-	cfg *appconfig.ReviewerConfig
-}
-
-// NewPatternSecurityAnalyzer creates a new security analyzer.
-func NewPatternSecurityAnalyzer(cfg *appconfig.ReviewerConfig) *PatternSecurityAnalyzer {
-	return &PatternSecurityAnalyzer{cfg: cfg}
-}
-
-// Analyze performs security analysis.
-func (a *PatternSecurityAnalyzer) Analyze(ctx context.Context, req *SecurityAnalysisRequest) (*events.SecurityAssessment, error) {
-	// Stub implementation - returns clean assessment
-	return &events.SecurityAssessment{
-		OverallSecurityScore:   100,
-		SecurityStatus:         events.SecurityStatusSecure,
-		VulnerabilitiesFound:   []events.Vulnerability{},
-		SecretsDetected:        []events.SecretFinding{},
-		SecurityRegressions:    []events.SecurityRegression{},
-		RequiresSecurityReview: false,
-	}, nil
-}
-
-// PatternArchitectureAnalyzer is a pattern-based architecture analyzer.
-type PatternArchitectureAnalyzer struct {
-	cfg *appconfig.ReviewerConfig
-}
-
-// NewPatternArchitectureAnalyzer creates a new architecture analyzer.
-func NewPatternArchitectureAnalyzer(cfg *appconfig.ReviewerConfig) *PatternArchitectureAnalyzer {
-	return &PatternArchitectureAnalyzer{cfg: cfg}
-}
-
-// Analyze performs architecture analysis.
-func (a *PatternArchitectureAnalyzer) Analyze(ctx context.Context, req *ArchitectureAnalysisRequest) (*events.ArchitectureAssessment, error) {
-	// Stub implementation - returns clean assessment
-	return &events.ArchitectureAssessment{
-		OverallArchitectureScore:   100,
-		ArchitectureStatus:         events.ArchitectureStatusCompliant,
-		BreakingChanges:            []events.BreakingChange{},
-		DependencyViolations:       []events.DependencyViolation{},
-		RequiresArchitectureReview: false,
-	}, nil
-}
+// Note: PatternSecurityAnalyzer is implemented in security_analyzer.go
+// Note: PatternArchitectureAnalyzer is implemented in architecture_analyzer.go
 
 // ConservativeDecisionEngine makes conservative control decisions.
 type ConservativeDecisionEngine struct {
