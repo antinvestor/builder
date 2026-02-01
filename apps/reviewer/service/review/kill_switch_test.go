@@ -1,13 +1,15 @@
+//nolint:testpackage // white-box testing requires internal package access
 package review
 
 import (
 	"context"
 	"testing"
 
-	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
-	"github.com/antinvestor/builder/internal/events"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
+	"github.com/antinvestor/builder/internal/events"
 )
 
 // mockEventsEmitter is a mock for testing event emission.
@@ -174,7 +176,7 @@ func TestPersistentKillSwitchService_RecordFailure_ConsecutiveThreshold(t *testi
 	ctx := context.Background()
 
 	// Record failures up to threshold
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		triggered := svc.RecordFailure(ctx)
 		assert.False(t, triggered, "should not trigger before threshold")
 	}
@@ -196,13 +198,13 @@ func TestPersistentKillSwitchService_RecordFailure_ErrorRateThreshold(t *testing
 	svc.cfg.MaxConsecutiveFailures = 100
 
 	// Record successes to build up sample size
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		svc.RecordSuccess(ctx)
 	}
 
 	// Record failures to just below threshold
 	var triggered bool
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		triggered = svc.RecordFailure(ctx)
 		assert.False(t, triggered, "should not trigger before threshold")
 	}
@@ -222,7 +224,7 @@ func TestPersistentKillSwitchService_RecordSuccess_ResetsConsecutive(t *testing.
 	ctx := context.Background()
 
 	// Record some failures
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		svc.RecordFailure(ctx)
 	}
 
@@ -230,7 +232,7 @@ func TestPersistentKillSwitchService_RecordSuccess_ResetsConsecutive(t *testing.
 	svc.RecordSuccess(ctx)
 
 	// Continue failures - should start from 0
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		triggered := svc.RecordFailure(ctx)
 		assert.False(t, triggered, "consecutive counter should have reset")
 	}
@@ -245,14 +247,14 @@ func TestPersistentKillSwitchService_ResetMetrics(t *testing.T) {
 	ctx := context.Background()
 
 	// Record some activity
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		svc.RecordFailure(ctx)
 		svc.RecordSuccess(ctx)
 	}
 
 	// Verify metrics exist
 	metrics := svc.GetMetrics(ctx)
-	assert.Greater(t, metrics.TotalRequests, int64(0))
+	assert.Positive(t, metrics.TotalRequests)
 
 	// Reset
 	svc.ResetMetrics(ctx)
@@ -364,8 +366,8 @@ func TestPersistentKillSwitchService_NilEventsEmitter(t *testing.T) {
 
 	// Should not panic with nil emitter
 	err := svc.ActivateGlobal(ctx, events.KillSwitchReasonManual, "admin", "test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = svc.DeactivateGlobal(ctx, "admin", "test")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

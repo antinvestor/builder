@@ -5,9 +5,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pitabwire/util"
+
 	appconfig "github.com/antinvestor/builder/apps/reviewer/config"
 	"github.com/antinvestor/builder/internal/events"
-	"github.com/pitabwire/util"
 )
 
 // =============================================================================
@@ -76,7 +77,10 @@ type KillSwitchActivation struct {
 }
 
 // NewPersistentKillSwitchService creates a new persistent kill switch service.
-func NewPersistentKillSwitchService(cfg *appconfig.ReviewerConfig, eventsMan EventsEmitter) *PersistentKillSwitchService {
+func NewPersistentKillSwitchService(
+	cfg *appconfig.ReviewerConfig,
+	eventsMan EventsEmitter,
+) *PersistentKillSwitchService {
 	return &PersistentKillSwitchService{
 		cfg:               cfg,
 		eventsMan:         eventsMan,
@@ -142,7 +146,7 @@ func (s *PersistentKillSwitchService) IsActive(
 }
 
 // GetStatus returns the current kill switch status.
-func (s *PersistentKillSwitchService) GetStatus(ctx context.Context) (*events.KillSwitchStatusPayload, error) {
+func (s *PersistentKillSwitchService) GetStatus(_ context.Context) (*events.KillSwitchStatusPayload, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -478,7 +482,7 @@ func (s *PersistentKillSwitchService) DeactivateForExecution(
 // =============================================================================
 
 // RecordSuccess records a successful operation for failure rate tracking.
-func (s *PersistentKillSwitchService) RecordSuccess(ctx context.Context) {
+func (s *PersistentKillSwitchService) RecordSuccess(_ context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -558,7 +562,7 @@ func (s *PersistentKillSwitchService) ResetMetrics(ctx context.Context) {
 // =============================================================================
 
 // GetActivationHistory returns the activation history.
-func (s *PersistentKillSwitchService) GetActivationHistory(ctx context.Context) []KillSwitchActivation {
+func (s *PersistentKillSwitchService) GetActivationHistory(_ context.Context) []KillSwitchActivation {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -569,7 +573,7 @@ func (s *PersistentKillSwitchService) GetActivationHistory(ctx context.Context) 
 }
 
 // GetMetrics returns current failure metrics.
-func (s *PersistentKillSwitchService) GetMetrics(ctx context.Context) FailureMetrics {
+func (s *PersistentKillSwitchService) GetMetrics(_ context.Context) FailureMetrics {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.failureMetrics
