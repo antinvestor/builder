@@ -416,6 +416,10 @@ linters:
     presets:
       - std-error-handling
       - common-false-positives
+    # Exclude generated BAML client code entirely.
+    # These files are auto-generated and should not be linted.
+    paths:
+      - "baml_client/"
     # Excluding configuration per-path, per-linter, per-text and per-source.
     rules:
       - source: 'TODO'
