@@ -9,6 +9,7 @@ import (
 
 // Risk score constants.
 const (
+	perfectScore    = 100
 	riskScoreMedium = 50
 )
 
@@ -39,7 +40,11 @@ type KillSwitchService interface {
 		repositoryID string,
 	) (bool, events.KillSwitchReason, events.KillSwitchScope)
 	GetStatus(ctx context.Context) (*events.KillSwitchStatusPayload, error)
-	ActivateGlobal(ctx context.Context, reason events.KillSwitchReason, activatedBy, details string) error
+	ActivateGlobal(
+		ctx context.Context,
+		reason events.KillSwitchReason,
+		activatedBy, details string,
+	) error
 	DeactivateGlobal(ctx context.Context, deactivatedBy, reason string) error
 }
 
@@ -108,7 +113,10 @@ func NewConservativeDecisionEngine(cfg *appconfig.ReviewerConfig) *ConservativeD
 }
 
 // MakeDecision makes a control decision.
-func (e *ConservativeDecisionEngine) MakeDecision(_ context.Context, req *DecisionRequest) (*DecisionResult, error) {
+func (e *ConservativeDecisionEngine) MakeDecision(
+	_ context.Context,
+	req *DecisionRequest,
+) (*DecisionResult, error) {
 	// Stub implementation - approves if no issues
 	passesSecurityReview := !req.SecurityAssessment.RequiresSecurityReview
 	passesArchitectureReview := !req.ArchitectureAssessment.RequiresArchitectureReview

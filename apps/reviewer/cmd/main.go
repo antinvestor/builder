@@ -46,7 +46,7 @@ func main() {
 
 	securityAnalyzer := review.NewPatternSecurityAnalyzer(&cfg)
 	architectureAnalyzer := review.NewPatternArchitectureAnalyzer(&cfg)
-	decisionEngine := review.NewConservativeDecisionEngine(&cfg)
+	decisionEngine := review.NewThresholdDecisionEngine(&cfg)
 	killSwitchService := review.NewPersistentKillSwitchService(&cfg, evtsMan)
 
 	_ = securityAnalyzer
@@ -104,7 +104,7 @@ func main() {
 		_, _ = w.Write([]byte(`{"status":"ready","service":"reviewer"}`))
 	})
 
-	// Kill switch status endpoint
+	// Kill switch status endpoint.
 	mux.HandleFunc("/api/v1/killswitch/status", func(w http.ResponseWriter, r *http.Request) {
 		status, statusErr := killSwitchService.GetStatus(r.Context())
 		if statusErr != nil {
@@ -114,7 +114,7 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		if encodeErr := json.NewEncoder(w).Encode(status); encodeErr != nil {
-			http.Error(w, "failed to encode status", http.StatusInternalServerError)
+			log.With("err", encodeErr).Error("failed to encode kill switch status")
 		}
 	})
 
