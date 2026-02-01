@@ -30,7 +30,9 @@ golangci-lint run
 
 ## Branch Protection Requirements
 
-The `main` branch is protected with the following requirements. These must be configured in GitHub Settings > Branches > Branch protection rules.
+The `main` branch is protected with the following requirements. These are already configured via the GitHub API.
+
+> **Note:** Branch protection is currently active on the `main` branch with all settings below.
 
 ### Required for Main Branch
 
