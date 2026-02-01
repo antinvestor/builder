@@ -66,9 +66,7 @@ func (h *WebhookHandler) HandleGitHubWebhook(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get event type (using GitHub's header names - Go's Header.Get is case-insensitive)
-	//nolint:canonicalheader // GitHub uses this exact header name
 	eventType := r.Header.Get("X-GitHub-Event")
-	//nolint:canonicalheader // GitHub uses this exact header name
 	deliveryID := r.Header.Get("X-GitHub-Delivery")
 
 	log.Info("received GitHub webhook",
