@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pitabwire/util"
@@ -32,6 +34,9 @@ const (
 
 // DLQRecoveryService manages DLQ entries and recovery operations.
 type DLQRecoveryService interface {
+	// AddEntry adds an entry to the DLQ store.
+	AddEntry(ctx context.Context, entry *DLQEntry) (string, error)
+
 	// ListDLQEntries returns DLQ entries matching the filter.
 	ListDLQEntries(ctx context.Context, filter DLQFilter) (*DLQListResult, error)
 
@@ -183,11 +188,12 @@ func NewInMemoryDLQStore(publisher *QueuePublisher, mainQueueName string) *InMem
 
 // AddEntry adds an entry to the DLQ store.
 func (s *InMemoryDLQStore) AddEntry(_ context.Context, entry *DLQEntry) (string, error) {
+	// Use atomic increment to generate unique IDs safely
+	counter := atomic.AddInt64(&s.idCounter, 1)
+	id := fmt.Sprintf("dlq-%d", counter)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	s.idCounter++
-	id := fmt.Sprintf("dlq-%d", s.idCounter)
 
 	s.entries[id] = &DLQEntryWithID{
 		ID:       id,
@@ -210,14 +216,10 @@ func (s *InMemoryDLQStore) ListDLQEntries(_ context.Context, filter DLQFilter) (
 		}
 	}
 
-	// Sort by entered time (newest first)
-	for i := range len(matching) - 1 {
-		for j := i + 1; j < len(matching); j++ {
-			if matching[j].EnteredDLQAt.After(matching[i].EnteredDLQAt) {
-				matching[i], matching[j] = matching[j], matching[i]
-			}
-		}
-	}
+	// Sort by entered time (newest first) using efficient O(n log n) algorithm
+	sort.Slice(matching, func(i, j int) bool {
+		return matching[j].EnteredDLQAt.Before(matching[i].EnteredDLQAt)
+	})
 
 	total := len(matching)
 	limit := defaultDLQListLimit
@@ -544,15 +546,13 @@ func (h *DLQQueueHandler) Handle(ctx context.Context, _ map[string]string, paylo
 		}
 	}
 
-	// Add to store
-	if storeWithAdd, ok := h.store.(*InMemoryDLQStore); ok {
-		id, addErr := storeWithAdd.AddEntry(ctx, &entry)
-		if addErr != nil {
-			log.WithError(addErr).Error("failed to add DLQ entry")
-			return addErr
-		}
-		log.Info("added DLQ entry", "id", id)
+	// Add to store using the interface method
+	id, addErr := h.store.AddEntry(ctx, &entry)
+	if addErr != nil {
+		log.WithError(addErr).Error("failed to add DLQ entry")
+		return addErr
 	}
+	log.Info("added DLQ entry", "id", id)
 
 	return nil
 }

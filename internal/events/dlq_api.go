@@ -43,7 +43,11 @@ func (h *DLQAPIHandler) handleDLQ(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse query parameters
-	filter := h.parseFilter(r)
+	filter, filterErr := h.parseFilter(r)
+	if filterErr != nil {
+		h.writeError(w, http.StatusBadRequest, filterErr.Error())
+		return
+	}
 
 	result, err := h.recoveryService.ListDLQEntries(ctx, filter)
 	if err != nil {
@@ -221,7 +225,8 @@ func (h *DLQAPIHandler) handleDiscardEntry(w http.ResponseWriter, r *http.Reques
 }
 
 // parseFilter parses DLQ filter from query parameters.
-func (h *DLQAPIHandler) parseFilter(r *http.Request) DLQFilter {
+// Returns an error if numeric parameters (limit, offset) are malformed.
+func (h *DLQAPIHandler) parseFilter(r *http.Request) (DLQFilter, error) {
 	q := r.URL.Query()
 	filter := DLQFilter{}
 
@@ -260,18 +265,22 @@ func (h *DLQAPIHandler) parseFilter(r *http.Request) DLQFilter {
 	}
 
 	if limit := q.Get("limit"); limit != "" {
-		if n, err := strconv.Atoi(limit); err == nil {
-			filter.Limit = n
+		n, err := strconv.Atoi(limit)
+		if err != nil {
+			return DLQFilter{}, errors.New("invalid limit parameter: must be a number")
 		}
+		filter.Limit = n
 	}
 
 	if offset := q.Get("offset"); offset != "" {
-		if n, err := strconv.Atoi(offset); err == nil {
-			filter.Offset = n
+		n, err := strconv.Atoi(offset)
+		if err != nil {
+			return DLQFilter{}, errors.New("invalid offset parameter: must be a number")
 		}
+		filter.Offset = n
 	}
 
-	return filter
+	return filter, nil
 }
 
 // writeJSON writes a JSON response.
@@ -286,12 +295,4 @@ func (h *DLQAPIHandler) writeError(w http.ResponseWriter, status int, message st
 	h.writeJSON(w, status, map[string]string{
 		"error": message,
 	})
-}
-
-// DLQAPIResponse is a standard API response.
-type DLQAPIResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
-	Data    any    `json:"data,omitempty"`
-	Error   string `json:"error,omitempty"`
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pitabwire/util"
@@ -108,6 +109,7 @@ type RetryQueueHandler struct {
 	queuePublisher  *QueuePublisher
 	deduplication   DeduplicationStore
 	circuitBreakers map[string]*CircuitBreaker
+	cbMutex         sync.RWMutex
 }
 
 // NewRetryQueueHandler creates a new retry queue handler.
@@ -390,12 +392,26 @@ func (h *RetryQueueHandler) createRetryEvent(original *Event, attempt int, lastE
 }
 
 // getCircuitBreaker gets or creates a circuit breaker for an event type.
+// Uses double-checked locking to ensure thread-safe lazy initialization.
 func (h *RetryQueueHandler) getCircuitBreaker(eventType string) *CircuitBreaker {
+	// First check with read lock
+	h.cbMutex.RLock()
+	cb, ok := h.circuitBreakers[eventType]
+	h.cbMutex.RUnlock()
+	if ok {
+		return cb
+	}
+
+	// Acquire write lock for creation
+	h.cbMutex.Lock()
+	defer h.cbMutex.Unlock()
+
+	// Double-check in case another goroutine created it while we were waiting
 	if cb, ok := h.circuitBreakers[eventType]; ok {
 		return cb
 	}
 
-	cb := NewCircuitBreaker(eventType, circuitBreakerMaxFailures, defaultDelayLevel3)
+	cb = NewCircuitBreaker(eventType, circuitBreakerMaxFailures, defaultDelayLevel3)
 	h.circuitBreakers[eventType] = cb
 	return cb
 }
