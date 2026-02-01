@@ -33,6 +33,32 @@ const (
 	percentMultiple = 100
 )
 
+// Pre-compiled regular expressions for parsing test output.
+// These are compiled once at package initialization for better performance.
+var (
+	// Go test output patterns.
+	goTestPassRe = regexp.MustCompile(`--- PASS: (\S+) \(([0-9.]+)s\)`)
+	goTestFailRe = regexp.MustCompile(`--- FAIL: (\S+) \(([0-9.]+)s\)`)
+	goTestSkipRe = regexp.MustCompile(`--- SKIP: (\S+) \(([0-9.]+)s\)`)
+	goCoverageRe = regexp.MustCompile(`coverage:\s*([0-9.]+)%`)
+
+	// Pytest output patterns.
+	pytestSummaryRe = regexp.MustCompile(
+		`(\d+) passed(?:, (\d+) failed)?(?:, (\d+) skipped)?(?:, (\d+) error)? in ([0-9.]+)s`,
+	)
+	pytestPassedRe   = regexp.MustCompile(`PASSED\s+(\S+)`)
+	pytestFailedRe   = regexp.MustCompile(`FAILED\s+(\S+)`)
+	pytestSkippedRe  = regexp.MustCompile(`SKIPPED\s+(\S+)`)
+	pytestCoverageRe = regexp.MustCompile(`TOTAL\s+\d+\s+\d+\s+(\d+)%`)
+
+	// Jest output patterns.
+	jestSummaryRe = regexp.MustCompile(
+		`Tests:\s*(?:(\d+) passed)?(?:,\s*)?(?:(\d+) failed)?(?:,\s*)?(?:(\d+) skipped)?(?:,\s*)?(\d+) total`,
+	)
+	jestTimeRe     = regexp.MustCompile(`Time:\s*([0-9.]+)s`)
+	jestCoverageRe = regexp.MustCompile(`All files\s*\|\s*([0-9.]+)`)
+)
+
 // TestResultParser parses test output from various frameworks.
 type TestResultParser struct {
 	coverageThreshold float64
@@ -180,11 +206,7 @@ func (p *TestResultParser) parseGoTestLine(line string, result *events.TestResul
 	// --- PASS: TestName (0.00s)
 	// --- FAIL: TestName (0.00s)
 	// --- SKIP: TestName (0.00s)
-	passRe := regexp.MustCompile(`--- PASS: (\S+) \(([0-9.]+)s\)`)
-	failRe := regexp.MustCompile(`--- FAIL: (\S+) \(([0-9.]+)s\)`)
-	skipRe := regexp.MustCompile(`--- SKIP: (\S+) \(([0-9.]+)s\)`)
-
-	if match := passRe.FindStringSubmatch(line); match != nil {
+	if match := goTestPassRe.FindStringSubmatch(line); match != nil {
 		duration, _ := strconv.ParseFloat(match[2], 64)
 		result.TestCases = append(result.TestCases, events.TestCaseResult{
 			Name:       match[1],
@@ -196,7 +218,7 @@ func (p *TestResultParser) parseGoTestLine(line string, result *events.TestResul
 		return
 	}
 
-	if matchFail := failRe.FindStringSubmatch(line); matchFail != nil {
+	if matchFail := goTestFailRe.FindStringSubmatch(line); matchFail != nil {
 		duration, _ := strconv.ParseFloat(matchFail[2], 64)
 		result.TestCases = append(result.TestCases, events.TestCaseResult{
 			Name:       matchFail[1],
@@ -208,7 +230,7 @@ func (p *TestResultParser) parseGoTestLine(line string, result *events.TestResul
 		return
 	}
 
-	if matchSkip := skipRe.FindStringSubmatch(line); matchSkip != nil {
+	if matchSkip := goTestSkipRe.FindStringSubmatch(line); matchSkip != nil {
 		duration, _ := strconv.ParseFloat(matchSkip[2], 64)
 		result.TestCases = append(result.TestCases, events.TestCaseResult{
 			Name:       matchSkip[1],
@@ -223,8 +245,7 @@ func (p *TestResultParser) parseGoTestLine(line string, result *events.TestResul
 func (p *TestResultParser) parseGoCoverage(output string) float64 {
 	// Parse coverage from go test output
 	// coverage: 75.5% of statements
-	coverRe := regexp.MustCompile(`coverage:\s*([0-9.]+)%`)
-	if match := coverRe.FindStringSubmatch(output); match != nil {
+	if match := goCoverageRe.FindStringSubmatch(output); match != nil {
 		coverage, err := strconv.ParseFloat(match[1], 64)
 		if err == nil {
 			return coverage
@@ -243,10 +264,7 @@ func (p *TestResultParser) parsePytestOutput(output string) *events.TestResult {
 	}
 
 	// Parse summary line: "5 passed, 2 failed, 1 skipped in 1.23s"
-	summaryRe := regexp.MustCompile(
-		`(\d+) passed(?:.*?(\d+) failed)?(?:.*?(\d+) skipped)?(?:.*?(\d+) error)?.*?in ([0-9.]+)s`,
-	)
-	if match := summaryRe.FindStringSubmatch(output); match != nil {
+	if match := pytestSummaryRe.FindStringSubmatch(output); match != nil {
 		result.PassedTests, _ = strconv.Atoi(match[1])
 		if match[2] != "" {
 			result.FailedTests, _ = strconv.Atoi(match[2])
@@ -261,24 +279,20 @@ func (p *TestResultParser) parsePytestOutput(output string) *events.TestResult {
 	// Parse individual test results
 	// PASSED tests/test_foo.py::test_bar
 	// FAILED tests/test_foo.py::test_baz
-	passedRe := regexp.MustCompile(`PASSED\s+(\S+)`)
-	failedRe := regexp.MustCompile(`FAILED\s+(\S+)`)
-	skippedRe := regexp.MustCompile(`SKIPPED\s+(\S+)`)
-
 	scanner := bufio.NewScanner(strings.NewReader(output))
 	for scanner.Scan() {
 		line := scanner.Text()
-		if matchPass := passedRe.FindStringSubmatch(line); matchPass != nil {
+		if matchPass := pytestPassedRe.FindStringSubmatch(line); matchPass != nil {
 			result.TestCases = append(result.TestCases, events.TestCaseResult{
 				Name:   matchPass[1],
 				Status: statusPassed,
 			})
-		} else if matchFail := failedRe.FindStringSubmatch(line); matchFail != nil {
+		} else if matchFail := pytestFailedRe.FindStringSubmatch(line); matchFail != nil {
 			result.TestCases = append(result.TestCases, events.TestCaseResult{
 				Name:   matchFail[1],
 				Status: statusFailed,
 			})
-		} else if matchSkip := skippedRe.FindStringSubmatch(line); matchSkip != nil {
+		} else if matchSkip := pytestSkippedRe.FindStringSubmatch(line); matchSkip != nil {
 			result.TestCases = append(result.TestCases, events.TestCaseResult{
 				Name:   matchSkip[1],
 				Status: statusSkipped,
@@ -298,8 +312,7 @@ func (p *TestResultParser) parsePytestOutput(output string) *events.TestResult {
 func (p *TestResultParser) parsePythonCoverage(output string) float64 {
 	// Parse coverage from pytest-cov output
 	// TOTAL                                                  123     45    63%
-	coverRe := regexp.MustCompile(`TOTAL\s+\d+\s+\d+\s+(\d+)%`)
-	if match := coverRe.FindStringSubmatch(output); match != nil {
+	if match := pytestCoverageRe.FindStringSubmatch(output); match != nil {
 		coverage, err := strconv.ParseFloat(match[1], 64)
 		if err == nil {
 			return coverage
@@ -398,11 +411,8 @@ func (p *TestResultParser) parseJestTextOutput(output string) *events.TestResult
 		TestCases: []events.TestCaseResult{},
 	}
 
-	// Parse summary: Tests: 5 passed, 2 failed, 7 total
-	summaryRe := regexp.MustCompile(
-		`Tests:\s*(?:(\d+) passed)?(?:.*?(\d+) failed)?(?:.*?(\d+) skipped)?.*?(\d+) total`,
-	)
-	if match := summaryRe.FindStringSubmatch(output); match != nil {
+	// Parse summary: Tests: 3 passed, 2 failed, 5 total
+	if match := jestSummaryRe.FindStringSubmatch(output); match != nil {
 		if match[1] != "" {
 			result.PassedTests, _ = strconv.Atoi(match[1])
 		}
@@ -418,15 +428,13 @@ func (p *TestResultParser) parseJestTextOutput(output string) *events.TestResult
 	}
 
 	// Parse time: Time: 1.234s
-	timeRe := regexp.MustCompile(`Time:\s*([0-9.]+)s`)
-	if match := timeRe.FindStringSubmatch(output); match != nil {
+	if match := jestTimeRe.FindStringSubmatch(output); match != nil {
 		duration, _ := strconv.ParseFloat(match[1], 64)
 		result.DurationMs = int64(duration * msPerSecond)
 	}
 
 	// Parse coverage: All files | 75.5 | ...
-	coverRe := regexp.MustCompile(`All files\s*\|\s*([0-9.]+)`)
-	if match := coverRe.FindStringSubmatch(output); match != nil {
+	if match := jestCoverageRe.FindStringSubmatch(output); match != nil {
 		result.Coverage, _ = strconv.ParseFloat(match[1], 64)
 	}
 

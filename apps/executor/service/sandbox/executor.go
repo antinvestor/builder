@@ -213,7 +213,6 @@ func NewMultiRunner(cfg *appconfig.ExecutorConfig) *MultiRunner {
 // ParseResults parses test output into structured results.
 func (r *MultiRunner) ParseResults(output string, exitCode int, language string) (*events.TestResult, error) {
 	// Use the comprehensive result parser
-	parser := NewTestResultParser()
-	result := parser.ParseResults(output, exitCode, language)
-	return result, nil
+	parser := NewTestResultParser(r.cfg.CoverageThreshold)
+	return parser.ParseTestOutput(language, output, exitCode)
 }
