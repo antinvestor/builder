@@ -13,7 +13,7 @@ generator GoClient {
     output_dir "../baml_client"
 
     // Version of runtime to generate code for
-    version "0.217.0"
+    version "0.218.1"
 
     // Go module name for the generated client
     client_package_name "github.com/antinvestor/builder/baml_client"
