@@ -65,8 +65,10 @@ func (h *WebhookHandler) HandleGitHubWebhook(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	// Get event type
+	// Get event type (using GitHub's header names - Go's Header.Get is case-insensitive)
+	//nolint:canonicalheader // GitHub uses this exact header name
 	eventType := r.Header.Get("X-GitHub-Event")
+	//nolint:canonicalheader // GitHub uses this exact header name
 	deliveryID := r.Header.Get("X-GitHub-Delivery")
 
 	log.Info("received GitHub webhook",
@@ -116,12 +118,12 @@ func (h *WebhookHandler) verifySignature(body []byte, signature string) bool {
 type IssueEvent struct {
 	Action string `json:"action"`
 	Issue  struct {
-		Number  int     `json:"number"`
-		Title   string  `json:"title"`
-		Body    string  `json:"body"`
-		State   string  `json:"state"`
-		Labels  []Label `json:"labels"`
-		User    struct {
+		Number int     `json:"number"`
+		Title  string  `json:"title"`
+		Body   string  `json:"body"`
+		State  string  `json:"state"`
+		Labels []Label `json:"labels"`
+		User   struct {
 			Login string `json:"login"`
 		} `json:"user"`
 		HTMLURL string `json:"html_url"`
@@ -519,18 +521,18 @@ func (h *WebhookHandler) publishFeatureRequest(ctx context.Context, event *Issue
 		},
 	}
 
-	data, err := json.Marshal(request)
-	if err != nil {
-		return fmt.Errorf("marshal feature request: %w", err)
+	data, marshalErr := json.Marshal(request)
+	if marshalErr != nil {
+		return fmt.Errorf("marshal feature request: %w", marshalErr)
 	}
 
-	publisher, err := h.queue.GetPublisher(h.cfg.QueueFeatureRequestName)
-	if err != nil {
-		return fmt.Errorf("get publisher %s: %w", h.cfg.QueueFeatureRequestName, err)
+	publisher, pubErr := h.queue.GetPublisher(h.cfg.QueueFeatureRequestName)
+	if pubErr != nil {
+		return fmt.Errorf("get publisher %s: %w", h.cfg.QueueFeatureRequestName, pubErr)
 	}
 
-	if err := publisher.Publish(ctx, data); err != nil {
-		return fmt.Errorf("publish feature request: %w", err)
+	if publishErr := publisher.Publish(ctx, data); publishErr != nil {
+		return fmt.Errorf("publish feature request: %w", publishErr)
 	}
 
 	log.Info("published feature request",
@@ -560,18 +562,18 @@ func (h *WebhookHandler) publishGitHubEvent(ctx context.Context, eventType, acti
 		Payload: payload,
 	}
 
-	data, err := json.Marshal(event)
-	if err != nil {
-		return fmt.Errorf("marshal GitHub event: %w", err)
+	data, marshalErr := json.Marshal(event)
+	if marshalErr != nil {
+		return fmt.Errorf("marshal GitHub event: %w", marshalErr)
 	}
 
-	publisher, err := h.queue.GetPublisher(h.cfg.QueueGitHubEventName)
-	if err != nil {
-		return fmt.Errorf("get publisher %s: %w", h.cfg.QueueGitHubEventName, err)
+	publisher, pubErr := h.queue.GetPublisher(h.cfg.QueueGitHubEventName)
+	if pubErr != nil {
+		return fmt.Errorf("get publisher %s: %w", h.cfg.QueueGitHubEventName, pubErr)
 	}
 
-	if err := publisher.Publish(ctx, data); err != nil {
-		return fmt.Errorf("publish GitHub event: %w", err)
+	if publishErr := publisher.Publish(ctx, data); publishErr != nil {
+		return fmt.Errorf("publish GitHub event: %w", publishErr)
 	}
 
 	log.Debug("published GitHub event", "type", eventType, "action", action)
