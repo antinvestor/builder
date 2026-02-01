@@ -214,7 +214,8 @@ func calculateLockBackoff(attempt int) time.Duration {
 	// Add jitter: +/- jitterFraction * backoff
 	// Using math/rand/v2 is acceptable for jitter as it's not security-critical.
 	jitterRange := float64(backoff) * lockJitterFraction
-	jitter := time.Duration((rand.Float64()*2 - 1) * jitterRange) //nolint:gosec // jitter doesn't need cryptographic randomness
+	//nolint:gosec // jitter doesn't need cryptographic randomness
+	jitter := time.Duration((rand.Float64()*2 - 1) * jitterRange)
 
 	return backoff + jitter
 }
