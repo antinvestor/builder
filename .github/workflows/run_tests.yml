@@ -1,4 +1,4 @@
-name: Service testing action
+name: CI
 
 on:
   push:
@@ -8,17 +8,38 @@ on:
   pull_request:
 
 jobs:
-  test:
+  build:
+    name: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout new code for testing
+      - name: Checkout code
         uses: actions/checkout@v4
-      - name: Setup go testing infrastructure
+
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: "stable"
+
+      - name: Build all packages
+        run: go build ./...
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+
       - name: Set up gotestfmt
         uses: gotesttools/gotestfmt-action@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - run: go test -json -v ./... 2>&1 | gotestfmt -hide all
+
+      - name: Run tests
+        run: go test -race -json -v ./... 2>&1 | gotestfmt -hide all
