@@ -35,23 +35,7 @@ func NewRedisDeduplicationStore(client *redis.Client, ttl time.Duration) *RedisD
 
 // MarkProcessed marks an event as processed.
 func (s *RedisDeduplicationStore) MarkProcessed(ctx context.Context, eventID EventID, executionID ExecutionID) error {
-	entry := &redisDeduplicationEntry{
-		EventID:     eventID.String(),
-		ExecutionID: executionID.String(),
-		ProcessedAt: time.Now(),
-	}
-
-	data, err := json.Marshal(entry)
-	if err != nil {
-		return fmt.Errorf("marshal entry: %w", err)
-	}
-
-	key := dedupKeyPrefix + eventID.String()
-	if setErr := s.client.Set(ctx, key, data, s.ttl).Err(); setErr != nil {
-		return fmt.Errorf("set key: %w", setErr)
-	}
-
-	return nil
+	return s.MarkProcessedWithResult(ctx, eventID, executionID, nil)
 }
 
 // IsProcessed checks if an event has been processed.

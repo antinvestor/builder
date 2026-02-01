@@ -120,6 +120,9 @@ func (m *RedisSequenceManager) DeleteSequence(ctx context.Context, executionID E
 }
 
 // GetSequenceState returns the full sequence state for an execution.
+// Note: LastUpdated is set to the retrieval time, not the actual time the sequence
+// was last modified in Redis. For accurate last modification times, Redis would need
+// to store the timestamp alongside the sequence value.
 func (m *RedisSequenceManager) GetSequenceState(ctx context.Context, executionID ExecutionID) (*SequenceState, error) {
 	current, err := m.CurrentSequence(ctx, executionID)
 	if err != nil {
@@ -129,6 +132,6 @@ func (m *RedisSequenceManager) GetSequenceState(ctx context.Context, executionID
 	return &SequenceState{
 		ExecutionID:     executionID,
 		CurrentSequence: current,
-		LastUpdated:     time.Now(),
+		LastUpdated:     time.Now(), // Note: This is retrieval time, not actual last modification time
 	}, nil
 }

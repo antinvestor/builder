@@ -68,49 +68,68 @@ func (m *RedisLockManager) TryAcquire(
 ) (DistributedLock, bool, error) {
 	redisKey := lockKeyPrefix + key
 
-	// Try to set with NX (only if not exists)
-	ok, err := m.client.SetNX(ctx, redisKey, owner, ttl).Result()
-	if err != nil {
-		return nil, false, fmt.Errorf("setnx: %w", err)
-	}
-
-	if ok {
-		// Lock acquired
-		lock := &redisLock{
-			key:       key,
-			owner:     owner,
-			expiresAt: time.Now().Add(ttl),
-			manager:   m,
+	// Use a loop instead of recursion to avoid stack overflow under high contention
+	for {
+		// Try to set with NX (only if not exists)
+		ok, err := m.client.SetNX(ctx, redisKey, owner, ttl).Result()
+		if err != nil {
+			return nil, false, fmt.Errorf("setnx: %w", err)
 		}
-		return lock, true, nil
-	}
 
-	// Check if we already own the lock
-	currentOwner, err := m.client.Get(ctx, redisKey).Result()
-	if errors.Is(err, redis.Nil) {
-		// Lock expired between check and get, try again
-		return m.TryAcquire(ctx, key, owner, ttl)
-	}
-	if err != nil {
-		return nil, false, fmt.Errorf("get owner: %w", err)
-	}
-
-	if currentOwner == owner {
-		// We already own it, extend the TTL
-		if expireErr := m.client.Expire(ctx, redisKey, ttl).Err(); expireErr != nil {
-			return nil, false, fmt.Errorf("expire: %w", expireErr)
+		if ok {
+			// Lock acquired
+			lock := &redisLock{
+				key:       key,
+				owner:     owner,
+				expiresAt: time.Now().Add(ttl),
+				manager:   m,
+			}
+			return lock, true, nil
 		}
-		lock := &redisLock{
-			key:       key,
-			owner:     owner,
-			expiresAt: time.Now().Add(ttl),
-			manager:   m,
-		}
-		return lock, true, nil
-	}
 
-	// Lock held by someone else
-	return nil, false, nil
+		// Check if we already own the lock
+		currentOwner, err := m.client.Get(ctx, redisKey).Result()
+		if errors.Is(err, redis.Nil) {
+			// Lock expired between SetNX and Get, retry
+			continue
+		}
+		if err != nil {
+			return nil, false, fmt.Errorf("get owner: %w", err)
+		}
+
+		if currentOwner == owner {
+			// We already own it, extend the TTL atomically to prevent race conditions.
+			// Use Lua script to atomically check owner and extend TTL.
+			script := redis.NewScript(`
+				if redis.call("GET", KEYS[1]) == ARGV[1] then
+					return redis.call("PEXPIRE", KEYS[1], ARGV[2])
+				else
+					return 0
+				end
+			`)
+			result, scriptErr := script.Run(ctx, m.client, []string{redisKey}, owner, ttl.Milliseconds()).Result()
+			if scriptErr != nil {
+				return nil, false, fmt.Errorf("extend on re-acquire: %w", scriptErr)
+			}
+
+			count, isInt := result.(int64)
+			if !isInt || count == 0 {
+				// Lock was lost or expired, the polling loop in Acquire will retry
+				return nil, false, nil
+			}
+
+			lock := &redisLock{
+				key:       key,
+				owner:     owner,
+				expiresAt: time.Now().Add(ttl),
+				manager:   m,
+			}
+			return lock, true, nil
+		}
+
+		// Lock held by someone else
+		return nil, false, nil
+	}
 }
 
 // Release releases a lock.
