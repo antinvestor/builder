@@ -122,6 +122,7 @@ const (
 
 // PatchGenerationCompletedPayload is the payload for PatchGenerationCompleted.
 type PatchGenerationCompletedPayload struct {
+	ExecutionID     ExecutionID            `json:"execution_id"`
 	TotalSteps      int                    `json:"total_steps"`
 	StepsCompleted  int                    `json:"steps_completed"`
 	TotalFileChanges int                    `json:"total_file_changes"`
