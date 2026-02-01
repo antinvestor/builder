@@ -4,13 +4,12 @@ import (
 	"context"
 	"net/http"
 
-	"connectrpc.com/connect"
 	"github.com/pitabwire/frame"
 	"github.com/pitabwire/frame/config"
-	connectInterceptors "github.com/pitabwire/frame/security/interceptors/connect"
 	"github.com/pitabwire/util"
 
 	appconfig "github.com/antinvestor/builder/apps/gateway/config"
+	"github.com/antinvestor/builder/apps/gateway/middleware"
 )
 
 func main() {
@@ -39,78 +38,109 @@ func main() {
 	// Get queue manager for publishing
 	qMan := svc.QueueManager()
 
-	// ==========================================================================
-	// Register Publishers
-	// ==========================================================================
+	// Setup Security and Middleware
+	securityMan := svc.SecurityManager()
+	authenticator := securityMan.GetAuthenticator(ctx)
+	authMiddleware := middleware.NewAuthMiddleware(authenticator)
 
+	rateLimiter := middleware.NewRateLimiter(
+		cfg.RateLimitRequestsPerMinute,
+		cfg.RateLimitBurstSize,
+	)
+	defer rateLimiter.Stop()
+
+	log.Info("rate limiter configured",
+		"requests_per_minute", cfg.RateLimitRequestsPerMinute,
+		"burst_size", cfg.RateLimitBurstSize,
+	)
+
+	// Register Publishers
 	featureRequestPublisher := frame.WithRegisterPublisher(
 		cfg.QueueFeatureRequestName,
 		cfg.QueueFeatureRequestURI,
 	)
 
-	// ==========================================================================
-	// Setup HTTP Server
-	// ==========================================================================
+	// Setup HTTP Handlers and Routes
+	mux := setupRoutes(log, authMiddleware, rateLimiter)
 
-	securityMan := svc.SecurityManager()
-	authenticator := securityMan.GetAuthenticator(ctx)
+	_ = qMan // Will be used in feature endpoint for publishing
 
-	defaultInterceptorList, err := connectInterceptors.DefaultList(ctx, authenticator)
-	if err != nil {
-		log.WithError(err).Fatal("could not create default interceptors")
+	// Initialize and Run Service
+	svc.Init(ctx, frame.WithHTTPHandler(mux), featureRequestPublisher)
+
+	log.Info("Starting feature gateway service...")
+	if err = svc.Run(ctx, ""); err != nil {
+		log.WithError(err).Fatal("could not run server")
 	}
-	_ = defaultInterceptorList
-	_ = connect.WithInterceptors // Silence unused
+}
 
+func setupRoutes(
+	log *util.LogEntry,
+	authMiddleware *middleware.AuthMiddleware,
+	rateLimiter *middleware.RateLimiter,
+) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	// Health check endpoints
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	// Health endpoints - no auth, no rate limiting
+	mux.Handle("/health", healthHandler(log))
+	mux.Handle("/ready", readyHandler(log))
+
+	// Feature endpoint - requires auth and rate limiting
+	mux.Handle("/api/v1/features",
+		rateLimiter.Middleware(
+			authMiddleware.Middleware(featureHandler(log)),
+		),
+	)
+
+	return mux
+}
+
+func healthHandler(log *util.LogEntry) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy","service":"gateway"}`))
+		if _, writeErr := w.Write([]byte(`{"status":"healthy","service":"gateway"}`)); writeErr != nil {
+			log.WithError(writeErr).Error("failed to write health response")
+		}
 	})
+}
 
-	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+func readyHandler(log *util.LogEntry) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ready","service":"gateway"}`))
+		if _, writeErr := w.Write([]byte(`{"status":"ready","service":"gateway"}`)); writeErr != nil {
+			log.WithError(writeErr).Error("failed to write ready response")
+		}
 	})
+}
 
-	// Feature submission endpoint
-	mux.HandleFunc("/api/v1/features", func(w http.ResponseWriter, r *http.Request) {
+func featureHandler(log *util.LogEntry) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			_, _ = w.Write([]byte(`{"error":"method_not_allowed","message":"Only POST method is allowed"}`))
 			return
 		}
 
+		// Get authenticated user
+		claims := middleware.GetUserFromContext(r.Context())
+		userID := ""
+		if claims != nil {
+			userID, _ = claims.GetSubject()
+		}
+
+		log.Info("feature request received",
+			"user_id", userID,
+			"path", r.URL.Path,
+		)
+
 		// TODO: Parse request and publish to queue
-		// This is where the gateway receives feature requests and publishes them
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
-		w.Write([]byte(`{"status":"accepted","message":"Feature request queued"}`))
+		if _, writeErr := w.Write([]byte(`{"status":"accepted","message":"Feature request queued"}`)); writeErr != nil {
+			log.WithError(writeErr).Error("failed to write feature response")
+		}
 	})
-
-	_ = qMan // Will be used in feature endpoint
-
-	// ==========================================================================
-	// Initialize Service
-	// ==========================================================================
-
-	serviceOptions := []frame.Option{
-		frame.WithHTTPHandler(mux),
-		featureRequestPublisher,
-	}
-
-	svc.Init(ctx, serviceOptions...)
-
-	// ==========================================================================
-	// Start the Service
-	// ==========================================================================
-
-	log.Info("Starting feature gateway service...")
-	err = svc.Run(ctx, "")
-	if err != nil {
-		log.WithError(err).Fatal("could not run server")
-	}
 }
