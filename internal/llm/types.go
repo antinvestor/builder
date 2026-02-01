@@ -441,6 +441,12 @@ const (
 	defaultTimeoutSeconds  = 120
 	defaultMaxRetries      = 3
 	defaultMaxOutputTokens = 16384
+
+	// Rate limiting defaults (requests per second).
+	defaultAnthropicRPS = 50.0
+	defaultOpenAIRPS    = 500.0
+	defaultGoogleRPS    = 60.0
+	defaultBurstSize    = 10
 )
 
 // ClientConfig contains LLM client configuration.
@@ -461,6 +467,12 @@ type ClientConfig struct {
 	// Token limits
 	MaxOutputTokens int
 	Temperature     float64
+
+	// Rate limiting (requests per second, 0 = use default)
+	AnthropicRPS float64
+	OpenAIRPS    float64
+	GoogleRPS    float64
+	BurstSize    int
 }
 
 // DefaultClientConfig returns default client configuration.

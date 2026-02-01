@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pitabwire/util"
+	"golang.org/x/time/rate"
 )
 
 // Common errors.
@@ -84,6 +85,39 @@ type CompletionResponse struct {
 	CacheHit   bool
 }
 
+// RateLimitedProvider wraps a provider with rate limiting.
+type RateLimitedProvider struct {
+	provider ProviderClient
+	limiter  *rate.Limiter
+}
+
+// NewRateLimitedProvider creates a rate-limited provider wrapper.
+func NewRateLimitedProvider(provider ProviderClient, rps float64, burst int) *RateLimitedProvider {
+	return &RateLimitedProvider{
+		provider: provider,
+		limiter:  rate.NewLimiter(rate.Limit(rps), burst),
+	}
+}
+
+// Complete implements ProviderClient with rate limiting.
+func (r *RateLimitedProvider) Complete(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
+	// Wait for rate limit token
+	if err := r.limiter.Wait(ctx); err != nil {
+		return nil, fmt.Errorf("rate limit wait: %w", err)
+	}
+	return r.provider.Complete(ctx, req)
+}
+
+// Provider returns the underlying provider identifier.
+func (r *RateLimitedProvider) Provider() Provider {
+	return r.provider.Provider()
+}
+
+// IsAvailable returns true if the underlying provider is available.
+func (r *RateLimitedProvider) IsAvailable() bool {
+	return r.provider.IsAvailable()
+}
+
 // MultiProviderClient implements Client with fallback support.
 type MultiProviderClient struct {
 	providers     []ProviderClient
@@ -102,19 +136,40 @@ func NewMultiProviderClient(cfg ClientConfig) (*MultiProviderClient, error) {
 	const numProviders = 3
 	providers := make([]ProviderClient, 0, numProviders)
 
-	// Add Anthropic if configured
+	// Get burst size with default
+	burst := cfg.BurstSize
+	if burst == 0 {
+		burst = defaultBurstSize
+	}
+
+	// Add Anthropic if configured (with rate limiting)
 	if cfg.AnthropicAPIKey != "" {
-		providers = append(providers, NewAnthropicClient(cfg.AnthropicAPIKey, cfg))
+		rps := cfg.AnthropicRPS
+		if rps == 0 {
+			rps = defaultAnthropicRPS
+		}
+		provider := NewAnthropicClient(cfg.AnthropicAPIKey, cfg)
+		providers = append(providers, NewRateLimitedProvider(provider, rps, burst))
 	}
 
-	// Add OpenAI if configured
+	// Add OpenAI if configured (with rate limiting)
 	if cfg.OpenAIAPIKey != "" {
-		providers = append(providers, NewOpenAIClient(cfg.OpenAIAPIKey, cfg))
+		rps := cfg.OpenAIRPS
+		if rps == 0 {
+			rps = defaultOpenAIRPS
+		}
+		provider := NewOpenAIClient(cfg.OpenAIAPIKey, cfg)
+		providers = append(providers, NewRateLimitedProvider(provider, rps, burst))
 	}
 
-	// Add Google if configured
+	// Add Google if configured (with rate limiting)
 	if cfg.GoogleAPIKey != "" {
-		providers = append(providers, NewGoogleClient(cfg.GoogleAPIKey, cfg))
+		rps := cfg.GoogleRPS
+		if rps == 0 {
+			rps = defaultGoogleRPS
+		}
+		provider := NewGoogleClient(cfg.GoogleAPIKey, cfg)
+		providers = append(providers, NewRateLimitedProvider(provider, rps, burst))
 	}
 
 	if len(providers) == 0 {

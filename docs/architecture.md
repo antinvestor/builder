@@ -32,9 +32,9 @@ builder is an autonomous feature-building platform that uses event-driven archit
 | Reviewer Service | ✅ Implemented | Security review, kill switch |
 | Executor Service | ✅ Implemented | Docker sandbox execution |
 | Webhook Service | ✅ Implemented | External integrations |
-| Multi-provider LLM | ✅ Implemented | Anthropic, OpenAI, Google |
+| Multi-provider LLM | ✅ Implemented | Anthropic, OpenAI, Google with rate limiting |
 | Queue Infrastructure | ✅ Implemented | NATS/Kafka with retry levels |
-| Persistent State | ⚠️ Partial | Database for executions, in-memory for workspace tracking |
+| Persistent State | ✅ Implemented | Database for executions and workspace tracking |
 
 ### Design Principles
 
@@ -66,10 +66,10 @@ builder is an autonomous feature-building platform that uses event-driven archit
 │  ┌─────────────────────────┐            ┌─────────────────────────┐            │
 │  │ • NATS/Kafka            │            │ • PostgreSQL            │            │
 │  │ • 3-Level Retry Queues  │            │ • Local Workspace FS    │            │
-│  │ • Dead Letter Queues    │            │ • In-Memory State*      │            │
+│  │ • Dead Letter Queues    │            │ • In-Memory Dedup*      │            │
 │  └─────────────────────────┘            └─────────────────────────┘            │
 │                                                                                  │
-│  * Workspace and deduplication tracking are in-memory (see Known Limitations)  │
+│  * Deduplication tracking is in-memory (see Known Limitations - Issue #18)     │
 │                                                                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1379,13 +1379,13 @@ func (w *Worker) processEvent(ctx context.Context, execCtx *FeatureExecutionCont
 
 ### Critical Issues
 
-| Issue | Component | Impact | Recommended Fix |
-|-------|-----------|--------|-----------------|
-| **In-Memory Workspace Tracking** | `repository/workspace.go` | Workspace mappings lost on restart; workspaces become orphaned | Implement database-backed workspace repository |
-| **In-Memory Deduplication** | `deduplication/store.go` | Duplicate request detection lost on restart; may reprocess requests | Implement Redis or database-backed deduplication store |
-| **Lock Polling Without Backoff** | `locks/lock_manager.go` | Aggressive polling (1s) under contention; CPU waste | Add exponential backoff to lock acquisition |
-| **No LLM Rate Limiter** | `internal/llm/client.go` | Relies on provider rate limit errors; suboptimal | Add proactive token bucket rate limiter |
-| **Cleanup Without Context** | `repository/cleanup.go` | Background goroutines don't respect shutdown signals | Add graceful shutdown with context propagation |
+| Issue | Component | Status | Notes |
+|-------|-----------|--------|-------|
+| **In-Memory Workspace Tracking** | `repository/workspace.go` | ✅ Fixed | PostgreSQL-backed workspace repository with cleanup service |
+| **In-Memory Deduplication** | `deduplication/store.go` | ⚠️ Open | Issue #18 - Implement Redis or database-backed deduplication store |
+| **Lock Polling Without Backoff** | `locks/lock_manager.go` | ✅ Fixed | Issue #33 - Exponential backoff with jitter (100ms-30s) |
+| **No LLM Rate Limiter** | `internal/llm/client.go` | ✅ Fixed | Issue #34 - Token bucket rate limiter per provider |
+| **Cleanup Without Context** | `repository/cleanup.go` | ✅ Fixed | Issue #35 - Graceful shutdown with stop channels |
 
 ### Concurrency Safeguards (Currently Implemented)
 
@@ -1396,7 +1396,9 @@ These controls are in place and working:
 | Clone Semaphore | `repository/git.go` | `MaxConcurrentClones` | 10 |
 | Execution Semaphore | `executor/service.go` | `MaxConcurrentExecutions` | 50 |
 | Distributed Lock | `locks/lock_manager.go` | Database-backed | Per-repository locking |
-| Request Deduplication | `deduplication/store.go` | In-memory | ⚠️ Non-persistent |
+| Request Deduplication | `deduplication/store.go` | In-memory | ⚠️ Non-persistent (Issue #18) |
+| LLM Rate Limiting | `internal/llm/client.go` | Token bucket | Anthropic: 50 RPS, OpenAI: 500 RPS, Google: 60 RPS |
+| Lock Backoff | `events/locking.go` | Exponential | 100ms-30s with jitter |
 
 ### Queue Resilience (Implemented)
 
@@ -1411,11 +1413,20 @@ feature.requests.dlq     → Dead letter queue (requires manual intervention)
 
 ### Recommended Pre-Production Checklist
 
-- [ ] **Issue #32:** Implement persistent workspace repository
-- [ ] **Issue #18:** Implement persistent deduplication store (existing issue)
-- [ ] **Issue #33:** Add exponential backoff to lock manager
-- [ ] **Issue #34:** Add proactive LLM rate limiter
-- [ ] **Issue #35:** Implement graceful shutdown for cleanup goroutines
+**Code Quality:**
+- [x] **Issue #32:** Implement persistent workspace repository
+- [ ] **Issue #18:** Implement persistent deduplication store
+- [x] **Issue #33:** Add exponential backoff to lock manager
+- [x] **Issue #34:** Add proactive LLM rate limiter
+- [x] **Issue #35:** Implement graceful shutdown for cleanup goroutines
+
+**Repository Configuration:**
+- [ ] Configure GitHub branch protection on `main` (see [CONTRIBUTING.md](../CONTRIBUTING.md))
+- [ ] Enable required status checks (lint, test, build)
+- [ ] Require pull request reviews before merging
+- [ ] Configure CODEOWNERS for critical paths
+
+**Operations:**
 - [ ] Configure monitoring/alerting for DLQ depth
 - [ ] Load test with target concurrent execution count
 - [ ] Configure appropriate resource limits in Kubernetes

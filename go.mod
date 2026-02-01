@@ -1,12 +1,13 @@
 module github.com/antinvestor/builder
 
-go 1.25.2
+go 1.25.6
 
 require (
 	connectrpc.com/connect v1.19.1
 	github.com/pitabwire/frame v1.70.2
 	github.com/pitabwire/util v0.4.0
 	github.com/rs/xid v1.6.0
+	golang.org/x/time v0.14.0
 	gorm.io/gorm v1.31.1
 )
 

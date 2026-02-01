@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+// Deduplication configuration constants.
+const (
+	deduplicationCleanupInterval = 24 * time.Hour
+)
+
 // DeduplicationStore tracks processed events for deduplication.
 type DeduplicationStore interface {
 	// MarkProcessed marks an event as processed.
@@ -57,8 +62,10 @@ type ProcessingResult struct {
 
 // InMemoryDeduplicationStore is an in-memory implementation for testing.
 type InMemoryDeduplicationStore struct {
-	mu      sync.RWMutex
-	entries map[string]*deduplicationEntry
+	mu        sync.RWMutex
+	entries   map[string]*deduplicationEntry
+	stopCh    chan struct{}
+	stoppedCh chan struct{}
 }
 
 type deduplicationEntry struct {
@@ -71,19 +78,35 @@ type deduplicationEntry struct {
 // NewInMemoryDeduplicationStore creates a new in-memory deduplication store.
 func NewInMemoryDeduplicationStore() *InMemoryDeduplicationStore {
 	store := &InMemoryDeduplicationStore{
-		entries: make(map[string]*deduplicationEntry),
+		entries:   make(map[string]*deduplicationEntry),
+		stopCh:    make(chan struct{}),
+		stoppedCh: make(chan struct{}),
 	}
 	// Start cleanup goroutine
 	go store.periodicCleanup()
 	return store
 }
 
+// Close stops the deduplication store's cleanup goroutine gracefully.
+func (s *InMemoryDeduplicationStore) Close() error {
+	close(s.stopCh)
+	<-s.stoppedCh
+	return nil
+}
+
 func (s *InMemoryDeduplicationStore) periodicCleanup() {
+	defer close(s.stoppedCh)
+
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		s.Cleanup(context.Background(), 24*time.Hour)
+	for {
+		select {
+		case <-s.stopCh:
+			return
+		case <-ticker.C:
+			_, _ = s.Cleanup(context.Background(), deduplicationCleanupInterval)
+		}
 	}
 }
 
