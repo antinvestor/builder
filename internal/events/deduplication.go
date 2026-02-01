@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+// Deduplication configuration constants.
+const (
+	deduplicationCleanupInterval = 24 * time.Hour
+)
+
 // DeduplicationStore tracks processed events for deduplication.
 type DeduplicationStore interface {
 	// MarkProcessed marks an event as processed.
@@ -100,7 +105,7 @@ func (s *InMemoryDeduplicationStore) periodicCleanup() {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			_, _ = s.Cleanup(context.Background(), 24*time.Hour)
+			_, _ = s.Cleanup(context.Background(), deduplicationCleanupInterval)
 		}
 	}
 }

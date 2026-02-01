@@ -14,6 +14,7 @@ const (
 	lockBaseBackoff    = 100 * time.Millisecond
 	lockMaxBackoff     = 30 * time.Second
 	lockJitterFraction = 0.3
+	lockMaxAttemptCap  = 10 // Maximum exponent for backoff calculation
 )
 
 // Common locking errors.
@@ -111,9 +112,9 @@ func (e *ExecutionLock) AcquireExecutionLock(
 
 // InMemoryLockManager is an in-memory implementation for testing.
 type InMemoryLockManager struct {
-	mu       sync.RWMutex
-	locks    map[string]*inMemoryLock
-	stopCh   chan struct{}
+	mu        sync.RWMutex
+	locks     map[string]*inMemoryLock
+	stopCh    chan struct{}
 	stoppedCh chan struct{}
 }
 
@@ -205,14 +206,15 @@ func (m *InMemoryLockManager) Acquire(ctx context.Context, key string, owner str
 // calculateLockBackoff computes backoff duration with exponential increase and jitter.
 func calculateLockBackoff(attempt int) time.Duration {
 	// Exponential backoff: base * 2^attempt
-	backoff := lockBaseBackoff * time.Duration(1<<min(attempt, 10))
-	if backoff > lockMaxBackoff {
-		backoff = lockMaxBackoff
-	}
+	backoff := min(
+		lockBaseBackoff*time.Duration(1<<min(attempt, lockMaxAttemptCap)),
+		lockMaxBackoff,
+	)
 
 	// Add jitter: +/- jitterFraction * backoff
+	// Using math/rand/v2 is acceptable for jitter as it's not security-critical.
 	jitterRange := float64(backoff) * lockJitterFraction
-	jitter := time.Duration((rand.Float64()*2 - 1) * jitterRange)
+	jitter := time.Duration((rand.Float64()*2 - 1) * jitterRange) //nolint:gosec // jitter doesn't need cryptographic randomness
 
 	return backoff + jitter
 }

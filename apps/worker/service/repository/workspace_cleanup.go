@@ -219,7 +219,8 @@ func (s *WorkspaceCleanupService) CleanupOrphaned(ctx context.Context) error {
 	cleaned := 0
 	for _, ws := range orphaned {
 		// Mark as cleanup pending
-		if updateErr := s.workspaceRepo.UpdateStatus(ctx, ws.ExecutionID, WorkspaceStatusCleanupPending); updateErr != nil {
+		updateErr := s.workspaceRepo.UpdateStatus(ctx, ws.ExecutionID, WorkspaceStatusCleanupPending)
+		if updateErr != nil {
 			log.WithError(updateErr).Error("failed to mark workspace for cleanup",
 				"execution_id", ws.ExecutionID)
 			continue
@@ -234,7 +235,8 @@ func (s *WorkspaceCleanupService) CleanupOrphaned(ctx context.Context) error {
 		}
 
 		// Mark as cleaned
-		if updateErr := s.workspaceRepo.UpdateStatus(ctx, ws.ExecutionID, WorkspaceStatusCleaned); updateErr != nil {
+		updateErr = s.workspaceRepo.UpdateStatus(ctx, ws.ExecutionID, WorkspaceStatusCleaned)
+		if updateErr != nil {
 			log.WithError(updateErr).Error("failed to mark workspace as cleaned",
 				"execution_id", ws.ExecutionID)
 			continue

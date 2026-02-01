@@ -192,7 +192,7 @@ type PGWorkspaceRepository struct {
 // NewWorkspaceRepository creates a new workspace repository.
 // If a database pool is provided, it uses PostgreSQL for persistence.
 // Otherwise, it falls back to in-memory storage.
-func NewWorkspaceRepository(ctx context.Context, p pool.Pool) WorkspaceRepository {
+func NewWorkspaceRepository(_ context.Context, p pool.Pool) WorkspaceRepository {
 	if p != nil {
 		return &PGWorkspaceRepository{pool: p}
 	}
@@ -372,7 +372,7 @@ func (r *MemoryWorkspaceRepository) Delete(ctx context.Context, executionID stri
 
 // UpdateStatus updates the workspace status.
 func (r *MemoryWorkspaceRepository) UpdateStatus(
-	ctx context.Context,
+	_ context.Context,
 	executionID string,
 	status WorkspaceStatus,
 ) error {
@@ -386,7 +386,7 @@ func (r *MemoryWorkspaceRepository) UpdateStatus(
 
 // UpdateLastAccessed updates the last accessed timestamp.
 func (r *MemoryWorkspaceRepository) UpdateLastAccessed(
-	ctx context.Context,
+	_ context.Context,
 	executionID string,
 ) error {
 	r.mu.Lock()
@@ -399,7 +399,7 @@ func (r *MemoryWorkspaceRepository) UpdateLastAccessed(
 
 // ListByStatus lists workspaces with a specific status.
 func (r *MemoryWorkspaceRepository) ListByStatus(
-	ctx context.Context,
+	_ context.Context,
 	status WorkspaceStatus,
 ) ([]*Workspace, error) {
 	r.mu.RLock()
@@ -415,7 +415,7 @@ func (r *MemoryWorkspaceRepository) ListByStatus(
 
 // ListOrphaned lists workspaces that haven't been accessed recently.
 func (r *MemoryWorkspaceRepository) ListOrphaned(
-	ctx context.Context,
+	_ context.Context,
 	olderThan time.Duration,
 ) ([]*Workspace, error) {
 	r.mu.RLock()
@@ -431,7 +431,7 @@ func (r *MemoryWorkspaceRepository) ListOrphaned(
 }
 
 // ListAll lists all workspaces.
-func (r *MemoryWorkspaceRepository) ListAll(ctx context.Context) ([]*Workspace, error) {
+func (r *MemoryWorkspaceRepository) ListAll(_ context.Context) ([]*Workspace, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	result := make([]*Workspace, 0, len(r.workspaces))
