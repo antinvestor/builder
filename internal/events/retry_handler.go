@@ -407,8 +407,8 @@ func (h *RetryQueueHandler) getCircuitBreaker(eventType string) *CircuitBreaker 
 	defer h.cbMutex.Unlock()
 
 	// Double-check in case another goroutine created it while we were waiting
-	if cb, ok := h.circuitBreakers[eventType]; ok {
-		return cb
+	if existingCB, exists := h.circuitBreakers[eventType]; exists {
+		return existingCB
 	}
 
 	cb = NewCircuitBreaker(eventType, circuitBreakerMaxFailures, defaultDelayLevel3)
