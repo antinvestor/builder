@@ -6,7 +6,7 @@ Thank you for your interest in contributing to the builder platform. This docume
 
 ### Prerequisites
 
-- Go 1.23+
+- Go 1.25.6+
 - Docker
 - kubectl (for Kubernetes development)
 - golangci-lint
