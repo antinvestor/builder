@@ -42,7 +42,17 @@ func main() {
 	// Setup Sandbox Executor
 	// ==========================================================================
 
-	sandboxExecutor := sandbox.NewSandboxExecutor(&cfg)
+	sandboxExecutor, err := sandbox.NewSandboxExecutor(&cfg)
+	if err != nil {
+		log.WithError(err).Error("failed to create sandbox executor")
+		return
+	}
+	defer func() {
+		if closeErr := sandboxExecutor.Close(); closeErr != nil {
+			log.WithError(closeErr).Warn("failed to close sandbox executor")
+		}
+	}()
+
 	testRunner := sandbox.NewMultiRunner(&cfg)
 
 	// ==========================================================================

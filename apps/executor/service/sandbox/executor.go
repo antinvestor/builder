@@ -75,7 +75,7 @@ func (h *ExecutionRequestHandler) Handle(
 	}
 
 	// Parse results
-	testResult, err := h.runner.ParseResults(result.Output, result.ExitCode)
+	testResult, err := h.runner.ParseResults(result.Output, result.ExitCode, request.Language)
 	if err != nil {
 		return h.emitFailure(ctx, request.ExecutionID, err)
 	}
@@ -116,14 +116,35 @@ func (h *ExecutionRequestHandler) emitSuccess(
 //nolint:revive // name stutters but changing would be a breaking change
 type SandboxExecutor struct {
 	cfg         *appconfig.ExecutorConfig
+	dockerExec  *DockerExecutor
 	activeCount int32
 }
 
 // NewSandboxExecutor creates a new sandbox executor.
-func NewSandboxExecutor(cfg *appconfig.ExecutorConfig) *SandboxExecutor {
-	return &SandboxExecutor{
-		cfg: cfg,
+func NewSandboxExecutor(cfg *appconfig.ExecutorConfig) (*SandboxExecutor, error) {
+	var dockerExec *DockerExecutor
+	var err error
+
+	// Initialize Docker executor once if sandbox is enabled
+	if cfg.SandboxEnabled {
+		dockerExec, err = NewDockerExecutor(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("create docker executor: %w", err)
+		}
 	}
+
+	return &SandboxExecutor{
+		cfg:        cfg,
+		dockerExec: dockerExec,
+	}, nil
+}
+
+// Close releases resources held by the executor.
+func (e *SandboxExecutor) Close() error {
+	if e.dockerExec != nil {
+		return e.dockerExec.Close()
+	}
+	return nil
 }
 
 // SandboxExecutionRequest contains execution request data.
@@ -157,7 +178,7 @@ func (e *SandboxExecutor) Execute(ctx context.Context, req *SandboxExecutionRequ
 	}
 
 	// If sandbox is disabled, run locally (for testing)
-	if !e.cfg.SandboxEnabled {
+	if !e.cfg.SandboxEnabled || e.dockerExec == nil {
 		return &SandboxExecutionResult{
 			Output:   "Tests executed successfully (sandbox disabled)",
 			ExitCode: 0,
@@ -165,14 +186,8 @@ func (e *SandboxExecutor) Execute(ctx context.Context, req *SandboxExecutionRequ
 		}, nil
 	}
 
-	// Use Docker executor for sandboxed execution
-	dockerExec, err := NewDockerExecutor(e.cfg)
-	if err != nil {
-		return nil, fmt.Errorf("create docker executor: %w", err)
-	}
-	defer dockerExec.Close()
-
-	return dockerExec.Execute(ctx, req)
+	// Use the reusable Docker executor for sandboxed execution
+	return e.dockerExec.Execute(ctx, req)
 }
 
 // ActiveCount returns the number of active executions.
@@ -195,10 +210,9 @@ func NewMultiRunner(cfg *appconfig.ExecutorConfig) *MultiRunner {
 }
 
 // ParseResults parses test output into structured results.
-func (r *MultiRunner) ParseResults(output string, exitCode int) (*events.TestResult, error) {
+func (r *MultiRunner) ParseResults(output string, exitCode int, language string) (*events.TestResult, error) {
 	// Use the comprehensive result parser
 	parser := NewTestResultParser()
-	// Default to "go" language if not specified
-	result := parser.ParseResults(output, exitCode, "go")
+	result := parser.ParseResults(output, exitCode, language)
 	return result, nil
 }

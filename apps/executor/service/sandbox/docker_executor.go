@@ -27,6 +27,16 @@ type languageConfig struct {
 	BuildCommand []string
 }
 
+// nodeJSConfig is the shared configuration for Node.js based languages.
+//
+//nolint:gochecknoglobals // package-level config needed for language configuration lookup
+var nodeJSConfig = languageConfig{
+	Image:       "node:20-slim",
+	TestCommand: []string{"npm", "test"},
+	WorkDir:     "/app",
+	Env:         []string{"CI=true"},
+}
+
 // defaultLanguageConfigs provides default configurations for supported languages.
 // This is a package-level variable to enable test access and configuration lookup.
 //
@@ -44,24 +54,9 @@ var defaultLanguageConfigs = map[string]languageConfig{
 		WorkDir:     "/app",
 		Env:         []string{"PYTHONDONTWRITEBYTECODE=1"},
 	},
-	"node": {
-		Image:       "node:20-slim",
-		TestCommand: []string{"npm", "test"},
-		WorkDir:     "/app",
-		Env:         []string{"CI=true"},
-	},
-	"javascript": {
-		Image:       "node:20-slim",
-		TestCommand: []string{"npm", "test"},
-		WorkDir:     "/app",
-		Env:         []string{"CI=true"},
-	},
-	"typescript": {
-		Image:       "node:20-slim",
-		TestCommand: []string{"npm", "test"},
-		WorkDir:     "/app",
-		Env:         []string{"CI=true"},
-	},
+	"node":       nodeJSConfig,
+	"javascript": nodeJSConfig,
+	"typescript": nodeJSConfig,
 	"java": {
 		Image:       "maven:3.9-eclipse-temurin-21-alpine",
 		TestCommand: []string{"mvn", "test", "-B"},

@@ -8,6 +8,40 @@ import (
 	"github.com/antinvestor/builder/internal/events"
 )
 
+// Package-level compiled regular expressions for better performance.
+// These are compiled once at package initialization rather than on each call.
+//
+//nolint:gochecknoglobals // package-level regex patterns for performance
+var (
+	// Go test patterns
+	goPassPattern     = regexp.MustCompile(`(?m)^ok\s+\S+\s+([\d.]+)s`)
+	goFailPattern     = regexp.MustCompile(`(?m)^FAIL\s+\S+\s+([\d.]+)s`)
+	goTestPassPattern = regexp.MustCompile(`(?m)^--- PASS: (\S+)\s+\(([\d.]+)s\)`)
+	goTestFailPattern = regexp.MustCompile(`(?m)^--- FAIL: (\S+)\s+\(([\d.]+)s\)`)
+	goCoveragePattern = regexp.MustCompile(`coverage:\s+([\d.]+)%`)
+
+	// Python pytest patterns
+	pytestSummaryPattern = regexp.MustCompile(`(\d+)\s+passed(?:.*?(\d+)\s+failed)?(?:.*?(\d+)\s+skipped)?.*?in\s+([\d.]+)s`)
+	pytestTestPattern    = regexp.MustCompile(`(?m)^(\S+::\S+)\s+(PASSED|FAILED|SKIPPED|ERROR)`)
+	pytestCoveragePattern = regexp.MustCompile(`TOTAL\s+\d+\s+\d+\s+(\d+)%`)
+
+	// Node.js/Jest patterns
+	jestSummaryPattern  = regexp.MustCompile(`Tests:\s+(?:(\d+)\s+failed,\s+)?(?:(\d+)\s+skipped,\s+)?(?:(\d+)\s+passed,\s+)?(\d+)\s+total`)
+	jestDurationPattern = regexp.MustCompile(`Time:\s+([\d.]+)\s*s`)
+	jestTestPattern     = regexp.MustCompile(`(?m)^\s*(✓|✕|○)\s+(.+?)\s+\((\d+)\s*ms\)`)
+	jestCoveragePattern = regexp.MustCompile(`All files\s*\|\s*([\d.]+)`)
+
+	// Java/Maven patterns
+	mavenSummaryPattern = regexp.MustCompile(`Tests run:\s*(\d+),\s*Failures:\s*(\d+),\s*Errors:\s*(\d+),\s*Skipped:\s*(\d+)`)
+	mavenTimePattern    = regexp.MustCompile(`Time elapsed:\s*([\d.]+)\s*s`)
+	mavenTestPattern    = regexp.MustCompile(`(?m)^(\S+)\((\S+)\)\s+Time elapsed:\s*([\d.]+)\s*s\s*<<<\s*(FAILURE|ERROR)!`)
+
+	// Rust/Cargo patterns
+	rustSummaryPattern = regexp.MustCompile(`test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored`)
+	rustTimePattern    = regexp.MustCompile(`finished in ([\d.]+)s`)
+	rustTestPattern    = regexp.MustCompile(`(?m)^test (\S+)\s+\.\.\.\s+(ok|FAILED|ignored)`)
+)
+
 // TestResultParser parses test output from various test frameworks.
 type TestResultParser struct{}
 
@@ -56,11 +90,8 @@ func (p *TestResultParser) parseGoTestOutput(output string, result *events.TestR
 	// Example: "ok  	github.com/pkg/name	0.123s"
 	// Example: "FAIL	github.com/pkg/name	0.456s"
 
-	passPattern := regexp.MustCompile(`(?m)^ok\s+\S+\s+([\d.]+)s`)
-	failPattern := regexp.MustCompile(`(?m)^FAIL\s+\S+\s+([\d.]+)s`)
-
-	passMatches := passPattern.FindAllStringSubmatch(output, -1)
-	failMatches := failPattern.FindAllStringSubmatch(output, -1)
+	passMatches := goPassPattern.FindAllStringSubmatch(output, -1)
+	failMatches := goFailPattern.FindAllStringSubmatch(output, -1)
 
 	result.PassedTests = len(passMatches)
 	result.FailedTests = len(failMatches)
@@ -69,10 +100,7 @@ func (p *TestResultParser) parseGoTestOutput(output string, result *events.TestR
 	// Parse individual test cases
 	// "--- PASS: TestName (0.00s)"
 	// "--- FAIL: TestName (0.00s)"
-	testPassPattern := regexp.MustCompile(`(?m)^--- PASS: (\S+)\s+\(([\d.]+)s\)`)
-	testFailPattern := regexp.MustCompile(`(?m)^--- FAIL: (\S+)\s+\(([\d.]+)s\)`)
-
-	for _, match := range testPassPattern.FindAllStringSubmatch(output, -1) {
+	for _, match := range goTestPassPattern.FindAllStringSubmatch(output, -1) {
 		duration := parseDuration(match[2])
 		result.TestCases = append(result.TestCases, events.TestCaseResult{
 			Name:       match[1],
@@ -81,7 +109,7 @@ func (p *TestResultParser) parseGoTestOutput(output string, result *events.TestR
 		})
 	}
 
-	for _, match := range testFailPattern.FindAllStringSubmatch(output, -1) {
+	for _, match := range goTestFailPattern.FindAllStringSubmatch(output, -1) {
 		duration := parseDuration(match[2])
 
 		// Try to extract failure message
@@ -97,8 +125,7 @@ func (p *TestResultParser) parseGoTestOutput(output string, result *events.TestR
 
 	// Parse coverage if present
 	// "coverage: 85.5% of statements"
-	coveragePattern := regexp.MustCompile(`coverage:\s+([\d.]+)%`)
-	if matches := coveragePattern.FindStringSubmatch(output); len(matches) >= 2 {
+	if matches := goCoveragePattern.FindStringSubmatch(output); len(matches) >= 2 {
 		if coverage, err := strconv.ParseFloat(matches[1], 64); err == nil {
 			result.Coverage = coverage
 		}
