@@ -3,12 +3,17 @@ package sandbox
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"sync"
 	"sync/atomic"
 
 	appconfig "github.com/antinvestor/builder/apps/executor/config"
 	"github.com/antinvestor/builder/internal/events"
+)
+
+// Common constants for test durations.
+const (
+	defaultTestDurationMs = 1000
 )
 
 // =============================================================================
@@ -50,7 +55,7 @@ func NewExecutionRequestHandler(
 // Handle processes incoming execution requests.
 func (h *ExecutionRequestHandler) Handle(
 	ctx context.Context,
-	headers map[string]string,
+	_ map[string]string, // headers - unused but part of handler interface
 	payload []byte,
 ) error {
 	var request events.TestExecutionRequestedPayload
@@ -70,7 +75,7 @@ func (h *ExecutionRequestHandler) Handle(
 	}
 
 	// Parse results
-	testResult, err := h.runner.ParseResults(result.Output, result.ExitCode)
+	testResult, err := h.runner.ParseResults(result.Output, result.ExitCode, request.Language)
 	if err != nil {
 		return h.emitFailure(ctx, request.ExecutionID, err)
 	}
@@ -90,7 +95,11 @@ func (h *ExecutionRequestHandler) emitFailure(ctx context.Context, executionID e
 	})
 }
 
-func (h *ExecutionRequestHandler) emitSuccess(ctx context.Context, executionID events.ExecutionID, result *events.TestResult) error {
+func (h *ExecutionRequestHandler) emitSuccess(
+	ctx context.Context,
+	executionID events.ExecutionID,
+	result *events.TestResult,
+) error {
 	return h.eventsMan.Emit(ctx, "feature.execution.completed", &events.TestExecutionCompletedPayload{
 		ExecutionID: executionID,
 		Success:     true,
@@ -103,20 +112,44 @@ func (h *ExecutionRequestHandler) emitSuccess(ctx context.Context, executionID e
 // =============================================================================
 
 // SandboxExecutor executes commands in isolated sandboxes.
+//
+//nolint:revive // name stutters but changing would be a breaking change
 type SandboxExecutor struct {
 	cfg         *appconfig.ExecutorConfig
+	dockerExec  *DockerExecutor
 	activeCount int32
-	mu          sync.RWMutex
 }
 
 // NewSandboxExecutor creates a new sandbox executor.
-func NewSandboxExecutor(cfg *appconfig.ExecutorConfig) *SandboxExecutor {
-	return &SandboxExecutor{
-		cfg: cfg,
+func NewSandboxExecutor(cfg *appconfig.ExecutorConfig) (*SandboxExecutor, error) {
+	var dockerExec *DockerExecutor
+	var err error
+
+	// Initialize Docker executor once if sandbox is enabled
+	if cfg.SandboxEnabled {
+		dockerExec, err = NewDockerExecutor(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("create docker executor: %w", err)
+		}
 	}
+
+	return &SandboxExecutor{
+		cfg:        cfg,
+		dockerExec: dockerExec,
+	}, nil
+}
+
+// Close releases resources held by the executor.
+func (e *SandboxExecutor) Close() error {
+	if e.dockerExec != nil {
+		return e.dockerExec.Close()
+	}
+	return nil
 }
 
 // SandboxExecutionRequest contains execution request data.
+//
+//nolint:revive // name stutters but changing would be a breaking change
 type SandboxExecutionRequest struct {
 	ExecutionID events.ExecutionID
 	Language    string
@@ -125,6 +158,8 @@ type SandboxExecutionRequest struct {
 }
 
 // SandboxExecutionResult contains execution result data.
+//
+//nolint:revive // name stutters but changing would be a breaking change
 type SandboxExecutionResult struct {
 	Output   string
 	ExitCode int
@@ -138,16 +173,22 @@ func (e *SandboxExecutor) Execute(ctx context.Context, req *SandboxExecutionRequ
 	defer atomic.AddInt32(&e.activeCount, -1)
 
 	// Check concurrency limit
+	//nolint:gosec // MaxConcurrentExecutions is a config value, typically small and won't overflow int32
 	if atomic.LoadInt32(&e.activeCount) > int32(e.cfg.MaxConcurrentExecutions) {
-		return nil, fmt.Errorf("max concurrent executions reached")
+		return nil, errors.New("max concurrent executions reached")
 	}
 
-	// Stub implementation - would execute in Docker/gVisor/Firecracker
-	return &SandboxExecutionResult{
-		Output:   "Tests executed successfully",
-		ExitCode: 0,
-		Duration: 1000,
-	}, nil
+	// If sandbox is disabled, run locally (for testing)
+	if !e.cfg.SandboxEnabled || e.dockerExec == nil {
+		return &SandboxExecutionResult{
+			Output:   "Tests executed successfully (sandbox disabled)",
+			ExitCode: 0,
+			Duration: defaultTestDurationMs,
+		}, nil
+	}
+
+	// Use the reusable Docker executor for sandboxed execution
+	return e.dockerExec.Execute(ctx, req)
 }
 
 // ActiveCount returns the number of active executions.
@@ -170,16 +211,9 @@ func NewMultiRunner(cfg *appconfig.ExecutorConfig) *MultiRunner {
 }
 
 // ParseResults parses test output into structured results.
-func (r *MultiRunner) ParseResults(output string, exitCode int) (*events.TestResult, error) {
-	// Stub implementation
-	success := exitCode == 0
-	return &events.TestResult{
-		TotalTests:   1,
-		PassedTests:  1,
-		FailedTests:  0,
-		SkippedTests: 0,
-		Success:      success,
-		DurationMs:   1000,
-		TestCases:    []events.TestCaseResult{},
-	}, nil
+func (r *MultiRunner) ParseResults(output string, exitCode int, language string) (*events.TestResult, error) {
+	// Use the comprehensive result parser
+	parser := NewTestResultParser()
+	result := parser.ParseResults(output, exitCode, language)
+	return result, nil
 }

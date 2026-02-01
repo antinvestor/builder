@@ -15,11 +15,11 @@ type ExecutorConfig struct {
 	// ==========================================================================
 
 	// Execution request queue (incoming from worker)
-	QueueExecutionRequestName string `envDefault:"feature.execution.requests" env:"QUEUE_EXECUTION_REQUEST_NAME"`
+	QueueExecutionRequestName string `envDefault:"feature.execution.requests"       env:"QUEUE_EXECUTION_REQUEST_NAME"`
 	QueueExecutionRequestURI  string `envDefault:"mem://feature.execution.requests" env:"QUEUE_EXECUTION_REQUEST_URI"`
 
 	// Execution result queue (outgoing to worker)
-	QueueExecutionResultName string `envDefault:"feature.execution.results" env:"QUEUE_EXECUTION_RESULT_NAME"`
+	QueueExecutionResultName string `envDefault:"feature.execution.results"       env:"QUEUE_EXECUTION_RESULT_NAME"`
 	QueueExecutionResultURI  string `envDefault:"mem://feature.execution.results" env:"QUEUE_EXECUTION_RESULT_URI"`
 
 	// ==========================================================================

@@ -42,7 +42,17 @@ func main() {
 	// Setup Sandbox Executor
 	// ==========================================================================
 
-	sandboxExecutor := sandbox.NewSandboxExecutor(&cfg)
+	sandboxExecutor, err := sandbox.NewSandboxExecutor(&cfg)
+	if err != nil {
+		log.WithError(err).Error("failed to create sandbox executor")
+		return
+	}
+	defer func() {
+		if closeErr := sandboxExecutor.Close(); closeErr != nil {
+			log.WithError(closeErr).Warn("failed to close sandbox executor")
+		}
+	}()
+
 	testRunner := sandbox.NewMultiRunner(&cfg)
 
 	// ==========================================================================
@@ -70,21 +80,21 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy","service":"executor"}`))
+		_, _ = w.Write([]byte(`{"status":"healthy","service":"executor"}`))
 	})
 
-	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, _ *http.Request) {
 		// Check if Docker is available
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ready","service":"executor"}`))
+		_, _ = w.Write([]byte(`{"status":"ready","service":"executor"}`))
 	})
 
 	// Active executions endpoint
-	mux.HandleFunc("/api/v1/executions/active", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/executions/active", func(w http.ResponseWriter, _ *http.Request) {
 		count := sandboxExecutor.ActiveCount()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
