@@ -11,6 +11,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrDatabaseUnavailable is returned when the database connection is not available.
+var ErrDatabaseUnavailable = errors.New("database connection is not available")
+
 // ExecutionStatus represents the status of an execution.
 type ExecutionStatus string
 
@@ -212,7 +215,7 @@ func (r *PGWorkspaceRepository) db(ctx context.Context, readOnly bool) *gorm.DB 
 func (r *PGWorkspaceRepository) Create(ctx context.Context, workspace *Workspace) error {
 	db := r.db(ctx, false)
 	if db == nil {
-		return nil
+		return ErrDatabaseUnavailable
 	}
 
 	workspace.Status = WorkspaceStatusActive
@@ -228,7 +231,7 @@ func (r *PGWorkspaceRepository) GetByExecutionID(
 ) (*Workspace, error) {
 	db := r.db(ctx, true)
 	if db == nil {
-		return nil, fmt.Errorf("workspace not found: %s", executionID)
+		return nil, ErrDatabaseUnavailable
 	}
 
 	var ws Workspace
@@ -245,7 +248,7 @@ func (r *PGWorkspaceRepository) GetByExecutionID(
 func (r *PGWorkspaceRepository) Delete(ctx context.Context, executionID string) error {
 	db := r.db(ctx, false)
 	if db == nil {
-		return nil
+		return ErrDatabaseUnavailable
 	}
 
 	return db.Delete(&Workspace{}, "execution_id = ?", executionID).Error
@@ -259,7 +262,7 @@ func (r *PGWorkspaceRepository) UpdateStatus(
 ) error {
 	db := r.db(ctx, false)
 	if db == nil {
-		return nil
+		return ErrDatabaseUnavailable
 	}
 
 	return db.Model(&Workspace{}).
@@ -272,7 +275,7 @@ func (r *PGWorkspaceRepository) UpdateStatus(
 func (r *PGWorkspaceRepository) UpdateLastAccessed(ctx context.Context, executionID string) error {
 	db := r.db(ctx, false)
 	if db == nil {
-		return nil
+		return ErrDatabaseUnavailable
 	}
 
 	return db.Model(&Workspace{}).
@@ -288,7 +291,7 @@ func (r *PGWorkspaceRepository) ListByStatus(
 ) ([]*Workspace, error) {
 	db := r.db(ctx, true)
 	if db == nil {
-		return nil, nil
+		return nil, ErrDatabaseUnavailable
 	}
 
 	var workspaces []*Workspace
@@ -305,7 +308,7 @@ func (r *PGWorkspaceRepository) ListOrphaned(
 ) ([]*Workspace, error) {
 	db := r.db(ctx, true)
 	if db == nil {
-		return nil, nil
+		return nil, ErrDatabaseUnavailable
 	}
 
 	cutoff := time.Now().Add(-olderThan)
@@ -322,7 +325,7 @@ func (r *PGWorkspaceRepository) ListOrphaned(
 func (r *PGWorkspaceRepository) ListAll(ctx context.Context) ([]*Workspace, error) {
 	db := r.db(ctx, true)
 	if db == nil {
-		return nil, nil
+		return nil, ErrDatabaseUnavailable
 	}
 
 	var workspaces []*Workspace

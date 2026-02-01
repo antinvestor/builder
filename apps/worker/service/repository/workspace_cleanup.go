@@ -90,7 +90,6 @@ func (s *WorkspaceCleanupService) CleanupOnStartup(ctx context.Context) error {
 
 	// Check each workspace
 	cleaned := 0
-	orphanedDirs := 0
 
 	for _, ws := range workspaces {
 		// Check if directory exists
@@ -109,7 +108,8 @@ func (s *WorkspaceCleanupService) CleanupOnStartup(ctx context.Context) error {
 	}
 
 	// Find directories on disk that aren't in database
-	if detectErr := s.detectOrphanedDirectories(ctx, workspaces); detectErr != nil {
+	orphanedDirs, detectErr := s.detectOrphanedDirectories(ctx, workspaces)
+	if detectErr != nil {
 		log.WithError(detectErr).Warn("failed to detect orphaned directories")
 	}
 
@@ -122,10 +122,11 @@ func (s *WorkspaceCleanupService) CleanupOnStartup(ctx context.Context) error {
 }
 
 // detectOrphanedDirectories finds directories on disk that aren't tracked in the database.
+// Returns the count of orphaned directories found.
 func (s *WorkspaceCleanupService) detectOrphanedDirectories(
 	ctx context.Context,
 	trackedWorkspaces []*Workspace,
-) error {
+) (int, error) {
 	log := util.Log(ctx)
 
 	// Build set of tracked paths
@@ -136,13 +137,13 @@ func (s *WorkspaceCleanupService) detectOrphanedDirectories(
 
 	// Check if base path exists
 	if _, err := os.Stat(s.workspaceBasePath); os.IsNotExist(err) {
-		return nil // No workspace directory yet
+		return 0, nil // No workspace directory yet
 	}
 
 	// List directories in workspace base path
 	entries, err := os.ReadDir(s.workspaceBasePath)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	orphaned := 0
@@ -171,7 +172,7 @@ func (s *WorkspaceCleanupService) detectOrphanedDirectories(
 			"count", orphaned)
 	}
 
-	return nil
+	return orphaned, nil
 }
 
 // cleanupOrphanedDirectory removes an orphaned directory if it's old enough.
