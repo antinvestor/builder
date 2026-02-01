@@ -2,18 +2,25 @@ package events
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
+
+	"github.com/pitabwire/util"
 
 	appconfig "github.com/antinvestor/builder/apps/worker/config"
 	"github.com/antinvestor/builder/apps/worker/service/repository"
 	"github.com/antinvestor/builder/internal/events"
 )
 
-// EventsEmitter emits events.
-type EventsEmitter interface {
+// Emitter emits events.
+type Emitter interface {
 	Emit(ctx context.Context, eventName string, payload any) error
 }
+
+// EventsEmitter is an alias for Emitter for backwards compatibility.
+//
+//nolint:revive // intentional stutter for backwards compatibility
+type EventsEmitter = Emitter
 
 // QueueManager manages queue publishing.
 type QueueManager interface {
@@ -55,7 +62,7 @@ func (h *RepositoryCheckoutEvent) PayloadType() any {
 }
 
 // Validate validates the payload.
-func (h *RepositoryCheckoutEvent) Validate(ctx context.Context, payload any) error {
+func (h *RepositoryCheckoutEvent) Validate(_ context.Context, _ any) error {
 	return nil
 }
 
@@ -63,7 +70,7 @@ func (h *RepositoryCheckoutEvent) Validate(ctx context.Context, payload any) err
 func (h *RepositoryCheckoutEvent) Execute(ctx context.Context, payload any) error {
 	request, ok := payload.(*events.FeatureExecutionInitializedPayload)
 	if !ok {
-		return fmt.Errorf("invalid payload type: expected *FeatureExecutionInitializedPayload")
+		return errors.New("invalid payload type: expected *FeatureExecutionInitializedPayload")
 	}
 
 	execID := events.NewExecutionID()
@@ -85,7 +92,7 @@ func (h *RepositoryCheckoutEvent) Execute(ctx context.Context, payload any) erro
 		CommitSHA:     request.Repository.BaseCommitSHA,
 	})
 	if err != nil {
-		_ = h.eventsMan.Emit(
+		emitErr := h.eventsMan.Emit(
 			ctx,
 			string(events.RepositoryCheckoutFailed),
 			&events.RepositoryCheckoutFailedPayload{
@@ -95,6 +102,9 @@ func (h *RepositoryCheckoutEvent) Execute(ctx context.Context, payload any) erro
 				FailedAt:     time.Now(),
 			},
 		)
+		if emitErr != nil {
+			util.Log(ctx).Warn("failed to emit checkout failure event", "error", emitErr)
+		}
 		return err
 	}
 
@@ -181,12 +191,12 @@ func (h *PatchGenerationEvent) PayloadType() any {
 }
 
 // Validate validates the payload.
-func (h *PatchGenerationEvent) Validate(ctx context.Context, payload any) error {
+func (h *PatchGenerationEvent) Validate(_ context.Context, _ any) error {
 	return nil
 }
 
 // Execute processes patch generation.
-func (h *PatchGenerationEvent) Execute(ctx context.Context, payload any) error {
+func (h *PatchGenerationEvent) Execute(ctx context.Context, _ any) error {
 	// Emit patch generation started
 	if err := h.eventsMan.Emit(ctx, string(events.PatchGenerationStarted), &events.PatchGenerationStartedPayload{
 		TotalSteps: 1,
@@ -252,7 +262,7 @@ func (h *FeatureCompletionEvent) PayloadType() any {
 }
 
 // Validate validates the payload.
-func (h *FeatureCompletionEvent) Validate(ctx context.Context, payload any) error {
+func (h *FeatureCompletionEvent) Validate(_ context.Context, _ any) error {
 	return nil
 }
 
@@ -260,7 +270,7 @@ func (h *FeatureCompletionEvent) Validate(ctx context.Context, payload any) erro
 func (h *FeatureCompletionEvent) Execute(ctx context.Context, payload any) error {
 	request, ok := payload.(*events.FeatureDeliveredPayload)
 	if !ok {
-		return fmt.Errorf("invalid payload type: expected *FeatureDeliveredPayload")
+		return errors.New("invalid payload type: expected *FeatureDeliveredPayload")
 	}
 
 	// Publish result to gateway
@@ -310,7 +320,7 @@ func (h *FeatureFailureEvent) PayloadType() any {
 }
 
 // Validate validates the payload.
-func (h *FeatureFailureEvent) Validate(ctx context.Context, payload any) error {
+func (h *FeatureFailureEvent) Validate(_ context.Context, _ any) error {
 	return nil
 }
 
@@ -318,7 +328,7 @@ func (h *FeatureFailureEvent) Validate(ctx context.Context, payload any) error {
 func (h *FeatureFailureEvent) Execute(ctx context.Context, payload any) error {
 	request, ok := payload.(*events.FeatureExecutionFailedPayload)
 	if !ok {
-		return fmt.Errorf("invalid payload type: expected *FeatureExecutionFailedPayload")
+		return errors.New("invalid payload type: expected *FeatureExecutionFailedPayload")
 	}
 
 	// Publish failure result to gateway

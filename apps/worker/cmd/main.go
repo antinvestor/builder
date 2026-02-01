@@ -36,11 +36,7 @@ func main() {
 	}
 
 	// Create service with Frame
-	ctx, svc := frame.NewServiceWithContext(
-		ctx,
-		frame.WithConfig(&cfg),
-		frame.WithDatastore(),
-	)
+	ctx, svc := frame.NewServiceWithContext(ctx, frame.WithConfig(&cfg), frame.WithDatastore())
 	defer svc.Stop(ctx)
 	log := svc.Log(ctx)
 
@@ -54,20 +50,10 @@ func main() {
 		return
 	}
 
-	// Get database pool
+	// Get database pool and setup repositories
 	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
-
-	// ==========================================================================
-	// Setup Repositories
-	// ==========================================================================
-
 	executionRepo := repository.NewExecutionRepository(ctx, dbPool)
 	workspaceRepo := repository.NewWorkspaceRepository(ctx, dbPool)
-
-	// ==========================================================================
-	// Setup Services
-	// ==========================================================================
-
 	repoService := repository.NewRepositoryService(&cfg, workspaceRepo)
 	bamlClient := setupBAMLClient(ctx, &cfg)
 
@@ -83,108 +69,62 @@ func main() {
 	workspaceCleanup.Start(ctx)
 	defer workspaceCleanup.Stop()
 
-	// ==========================================================================
-	// Register Publishers
-	// ==========================================================================
+	// Build service options
+	serviceOptions := buildServiceOptions(&cfg, executionRepo, evtsMan, qMan, repoService, bamlClient)
 
-	featureResultPublisher := frame.WithRegisterPublisher(
-		cfg.QueueFeatureResultName,
-		cfg.QueueFeatureResultURI,
-	)
+	// Initialize and run service
+	svc.Init(ctx, serviceOptions...)
+	log.Info("Starting feature worker service...")
+	if err = svc.Run(ctx, ""); err != nil {
+		log.WithError(err).Fatal("could not run server")
+	}
+}
 
-	reviewRequestPublisher := frame.WithRegisterPublisher(
-		cfg.QueueReviewRequestName,
-		cfg.QueueReviewRequestURI,
-	)
+func buildServiceOptions(
+	cfg *appconfig.WorkerConfig,
+	executionRepo repository.ExecutionRepository,
+	evtsMan events.EventsEmitter,
+	qMan events.QueueManager,
+	repoService *repository.RepositoryService,
+	bamlClient events.BAMLClient,
+) []frame.Option {
+	return []frame.Option{
+		frame.WithHTTPHandler(setupHealthEndpoints()),
+		// Publishers
+		frame.WithRegisterPublisher(cfg.QueueFeatureResultName, cfg.QueueFeatureResultURI),
+		frame.WithRegisterPublisher(cfg.QueueReviewRequestName, cfg.QueueReviewRequestURI),
+		frame.WithRegisterPublisher(cfg.QueueExecutionRequestName, cfg.QueueExecutionRequestURI),
+		frame.WithRegisterPublisher(cfg.QueueRetryLevel1Name, cfg.QueueRetryLevel1URI),
+		frame.WithRegisterPublisher(cfg.QueueDLQName, cfg.QueueDLQURI),
+		// Subscribers
+		frame.WithRegisterSubscriber(
+			cfg.QueueFeatureRequestName,
+			cfg.QueueFeatureRequestURI,
+			queue.NewFeatureRequestHandler(cfg, executionRepo, evtsMan),
+		),
+		// Event handlers
+		frame.WithRegisterEvents(
+			events.NewRepositoryCheckoutEvent(cfg, repoService, evtsMan),
+			events.NewPatchGenerationEvent(cfg, bamlClient, repoService, evtsMan),
+			events.NewFeatureCompletionEvent(cfg, executionRepo, qMan),
+			events.NewFeatureFailureEvent(cfg, executionRepo, qMan, evtsMan),
+		),
+	}
+}
 
-	executionRequestPublisher := frame.WithRegisterPublisher(
-		cfg.QueueExecutionRequestName,
-		cfg.QueueExecutionRequestURI,
-	)
-
-	retryLevel1Publisher := frame.WithRegisterPublisher(
-		cfg.QueueRetryLevel1Name,
-		cfg.QueueRetryLevel1URI,
-	)
-
-	dlqPublisher := frame.WithRegisterPublisher(
-		cfg.QueueDLQName,
-		cfg.QueueDLQURI,
-	)
-
-	// ==========================================================================
-	// Register Subscribers
-	// ==========================================================================
-
-	featureRequestSubscriber := frame.WithRegisterSubscriber(
-		cfg.QueueFeatureRequestName,
-		cfg.QueueFeatureRequestURI,
-		queue.NewFeatureRequestHandler(&cfg, executionRepo, evtsMan),
-	)
-
-	// ==========================================================================
-	// Register Event Handlers
-	// ==========================================================================
-
-	eventHandlers := frame.WithRegisterEvents(
-		// Repository operations
-		events.NewRepositoryCheckoutEvent(&cfg, repoService, evtsMan),
-
-		// Patch generation
-		events.NewPatchGenerationEvent(&cfg, bamlClient, repoService, evtsMan),
-
-		// Completion handlers
-		events.NewFeatureCompletionEvent(&cfg, executionRepo, qMan),
-		events.NewFeatureFailureEvent(&cfg, executionRepo, qMan, evtsMan),
-	)
-
-	// ==========================================================================
-	// Setup Health Endpoint
-	// ==========================================================================
-
+func setupHealthEndpoints() *http.ServeMux {
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"healthy","service":"worker"}`))
 	})
-
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ready","service":"worker"}`))
 	})
-
-	// ==========================================================================
-	// Initialize Service
-	// ==========================================================================
-
-	serviceOptions := []frame.Option{
-		frame.WithHTTPHandler(mux),
-		// Publishers
-		featureResultPublisher,
-		reviewRequestPublisher,
-		executionRequestPublisher,
-		retryLevel1Publisher,
-		dlqPublisher,
-		// Subscribers
-		featureRequestSubscriber,
-		// Event handlers
-		eventHandlers,
-	}
-
-	svc.Init(ctx, serviceOptions...)
-
-	// ==========================================================================
-	// Start the Service
-	// ==========================================================================
-
-	log.Info("Starting feature worker service...")
-	err = svc.Run(ctx, "")
-	if err != nil {
-		log.WithError(err).Fatal("could not run server")
-	}
+	return mux
 }
 
 func handleDatabaseMigration(
