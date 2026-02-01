@@ -12,6 +12,9 @@ import (
 	"github.com/antinvestor/builder/internal/events"
 )
 
+// Git constants.
+const commitSHALength = 40
+
 // RepositoryService handles git repository operations.
 type RepositoryService struct {
 	cfg           *appconfig.WorkerConfig
@@ -22,7 +25,10 @@ type RepositoryService struct {
 }
 
 // NewRepositoryService creates a new repository service.
-func NewRepositoryService(cfg *appconfig.WorkerConfig, workspaceRepo WorkspaceRepository) *RepositoryService {
+func NewRepositoryService(
+	cfg *appconfig.WorkerConfig,
+	workspaceRepo WorkspaceRepository,
+) *RepositoryService {
 	return &RepositoryService{
 		cfg:           cfg,
 		workspaceRepo: workspaceRepo,
@@ -47,7 +53,10 @@ type CheckoutResult struct {
 }
 
 // Checkout clones or fetches a repository to the workspace.
-func (s *RepositoryService) Checkout(ctx context.Context, req *CheckoutRequest) (*CheckoutResult, error) {
+func (s *RepositoryService) Checkout(
+	ctx context.Context,
+	req *CheckoutRequest,
+) (*CheckoutResult, error) {
 	startTime := time.Now()
 
 	// Acquire semaphore
@@ -60,15 +69,27 @@ func (s *RepositoryService) Checkout(ctx context.Context, req *CheckoutRequest) 
 
 	// Create workspace directory
 	workspacePath := filepath.Join(s.cfg.WorkspaceBasePath, req.ExecutionID.String())
-	if err := os.MkdirAll(workspacePath, 0755); err != nil {
+	if err := os.MkdirAll(workspacePath, 0750); err != nil {
 		return nil, fmt.Errorf("create workspace directory: %w", err)
 	}
 
 	// Clone the repository
-	cloneCtx, cancel := context.WithTimeout(ctx, time.Duration(s.cfg.CloneTimeoutSeconds)*time.Second)
+	cloneCtx, cancel := context.WithTimeout(
+		ctx,
+		time.Duration(s.cfg.CloneTimeoutSeconds)*time.Second,
+	)
 	defer cancel()
 
-	args := []string{"clone", "--branch", req.Branch, "--single-branch", "--depth", "100", req.RepositoryURL, workspacePath}
+	args := []string{
+		"clone",
+		"--branch",
+		req.Branch,
+		"--single-branch",
+		"--depth",
+		"100",
+		req.RepositoryURL,
+		workspacePath,
+	}
 
 	cmd := exec.CommandContext(cloneCtx, "git", args...)
 	cmd.Env = s.buildGitEnv()
@@ -83,13 +104,13 @@ func (s *RepositoryService) Checkout(ctx context.Context, req *CheckoutRequest) 
 	if commitSHA == "" {
 		shaCmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")
 		shaCmd.Dir = workspacePath
-		shaOutput, err := shaCmd.Output()
-		if err != nil {
-			return nil, fmt.Errorf("get commit SHA: %w", err)
+		shaOutput, shaErr := shaCmd.Output()
+		if shaErr != nil {
+			return nil, fmt.Errorf("get commit SHA: %w", shaErr)
 		}
 		commitSHA = string(shaOutput)
-		if len(commitSHA) > 40 {
-			commitSHA = commitSHA[:40]
+		if len(commitSHA) > commitSHALength {
+			commitSHA = commitSHA[:commitSHALength]
 		}
 	}
 
@@ -103,8 +124,8 @@ func (s *RepositoryService) Checkout(ctx context.Context, req *CheckoutRequest) 
 		CreatedAt:     time.Now(),
 	}
 
-	if err := s.workspaceRepo.Create(ctx, workspace); err != nil {
-		return nil, fmt.Errorf("record workspace: %w", err)
+	if createErr := s.workspaceRepo.Create(ctx, workspace); createErr != nil {
+		return nil, fmt.Errorf("record workspace: %w", createErr)
 	}
 
 	return &CheckoutResult{
@@ -116,7 +137,10 @@ func (s *RepositoryService) Checkout(ctx context.Context, req *CheckoutRequest) 
 }
 
 // GetWorkspace retrieves a workspace by execution ID.
-func (s *RepositoryService) GetWorkspace(ctx context.Context, executionID events.ExecutionID) (*Workspace, error) {
+func (s *RepositoryService) GetWorkspace(
+	ctx context.Context,
+	executionID events.ExecutionID,
+) (*Workspace, error) {
 	return s.workspaceRepo.GetByExecutionID(ctx, executionID.String())
 }
 
@@ -126,7 +150,11 @@ func (s *RepositoryService) GetWorkspacePath(executionID events.ExecutionID) str
 }
 
 // ReadFiles reads the content of multiple files from a workspace.
-func (s *RepositoryService) ReadFiles(ctx context.Context, executionID events.ExecutionID, paths []string) (map[string]string, error) {
+func (s *RepositoryService) ReadFiles(
+	ctx context.Context,
+	executionID events.ExecutionID,
+	paths []string,
+) (map[string]string, error) {
 	workspacePath := s.GetWorkspacePath(executionID)
 
 	contents := make(map[string]string, len(paths))
@@ -153,17 +181,40 @@ func (s *RepositoryService) ReadFiles(ctx context.Context, executionID events.Ex
 }
 
 // GetProjectStructure returns the project structure as a string.
-func (s *RepositoryService) GetProjectStructure(ctx context.Context, executionID events.ExecutionID) (string, error) {
+func (s *RepositoryService) GetProjectStructure(
+	ctx context.Context,
+	executionID events.ExecutionID,
+) (string, error) {
 	workspacePath := s.GetWorkspacePath(executionID)
 
 	// Use tree command if available, otherwise fall back to find
-	cmd := exec.CommandContext(ctx, "tree", "-L", "4", "--noreport", "-I", "node_modules|.git|vendor|__pycache__|.venv")
+	cmd := exec.CommandContext(
+		ctx,
+		"tree",
+		"-L",
+		"4",
+		"--noreport",
+		"-I",
+		"node_modules|.git|vendor|__pycache__|.venv",
+	)
 	cmd.Dir = workspacePath
 
 	output, err := cmd.Output()
 	if err != nil {
 		// Fallback to find
-		cmd = exec.CommandContext(ctx, "find", ".", "-type", "f", "-not", "-path", "./.git/*", "-not", "-path", "./node_modules/*")
+		cmd = exec.CommandContext(
+			ctx,
+			"find",
+			".",
+			"-type",
+			"f",
+			"-not",
+			"-path",
+			"./.git/*",
+			"-not",
+			"-path",
+			"./node_modules/*",
+		)
 		cmd.Dir = workspacePath
 		output, err = cmd.Output()
 		if err != nil {
@@ -175,15 +226,18 @@ func (s *RepositoryService) GetProjectStructure(ctx context.Context, executionID
 }
 
 // CleanupWorkspace removes a workspace.
-func (s *RepositoryService) CleanupWorkspace(ctx context.Context, executionID events.ExecutionID) error {
+func (s *RepositoryService) CleanupWorkspace(
+	ctx context.Context,
+	executionID events.ExecutionID,
+) error {
 	workspace, err := s.workspaceRepo.GetByExecutionID(ctx, executionID.String())
 	if err != nil {
 		return err
 	}
 
 	// Remove directory
-	if err := os.RemoveAll(workspace.LocalPath); err != nil {
-		return fmt.Errorf("remove workspace directory: %w", err)
+	if removeErr := os.RemoveAll(workspace.LocalPath); removeErr != nil {
+		return fmt.Errorf("remove workspace directory: %w", removeErr)
 	}
 
 	// Remove record
@@ -191,7 +245,11 @@ func (s *RepositoryService) CleanupWorkspace(ctx context.Context, executionID ev
 }
 
 // ApplyPatch applies a patch to a file in the workspace.
-func (s *RepositoryService) ApplyPatch(ctx context.Context, executionID events.ExecutionID, patch *events.Patch) error {
+func (s *RepositoryService) ApplyPatch(
+	ctx context.Context,
+	executionID events.ExecutionID,
+	patch *events.Patch,
+) error {
 	workspace, err := s.workspaceRepo.GetByExecutionID(ctx, executionID.String())
 	if err != nil {
 		return err
@@ -202,23 +260,23 @@ func (s *RepositoryService) ApplyPatch(ctx context.Context, executionID events.E
 	switch patch.Action {
 	case events.FileActionCreate, events.FileActionModify:
 		// Ensure parent directory exists
-		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-			return fmt.Errorf("create parent directory: %w", err)
+		if mkdirErr := os.MkdirAll(filepath.Dir(filePath), 0750); mkdirErr != nil {
+			return fmt.Errorf("create parent directory: %w", mkdirErr)
 		}
 		// Write new content
-		if err := os.WriteFile(filePath, []byte(patch.NewContent), 0644); err != nil {
-			return fmt.Errorf("write file: %w", err)
+		if writeErr := os.WriteFile(filePath, []byte(patch.NewContent), 0600); writeErr != nil {
+			return fmt.Errorf("write file: %w", writeErr)
 		}
 
 	case events.FileActionDelete:
-		if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("delete file: %w", err)
+		if deleteErr := os.Remove(filePath); deleteErr != nil && !os.IsNotExist(deleteErr) {
+			return fmt.Errorf("delete file: %w", deleteErr)
 		}
 
 	case events.FileActionRename:
 		oldPath := filepath.Join(workspace.LocalPath, patch.OldPath)
-		if err := os.Rename(oldPath, filePath); err != nil {
-			return fmt.Errorf("rename file: %w", err)
+		if renameErr := os.Rename(oldPath, filePath); renameErr != nil {
+			return fmt.Errorf("rename file: %w", renameErr)
 		}
 	}
 
@@ -226,7 +284,11 @@ func (s *RepositoryService) ApplyPatch(ctx context.Context, executionID events.E
 }
 
 // CreateCommit creates a git commit in the workspace.
-func (s *RepositoryService) CreateCommit(ctx context.Context, executionID events.ExecutionID, message string) (*events.CommitInfo, error) {
+func (s *RepositoryService) CreateCommit(
+	ctx context.Context,
+	executionID events.ExecutionID,
+	message string,
+) (*events.CommitInfo, error) {
 	workspacePath := s.GetWorkspacePath(executionID)
 
 	// Add all changes
@@ -258,8 +320,8 @@ func (s *RepositoryService) CreateCommit(ctx context.Context, executionID events
 	}
 
 	commitSHA := string(shaOutput)
-	if len(commitSHA) > 40 {
-		commitSHA = commitSHA[:40]
+	if len(commitSHA) > commitSHALength {
+		commitSHA = commitSHA[:commitSHALength]
 	}
 
 	return &events.CommitInfo{
@@ -278,7 +340,11 @@ func (s *RepositoryService) CreateCommit(ctx context.Context, executionID events
 }
 
 // PushBranch pushes the feature branch to the remote.
-func (s *RepositoryService) PushBranch(ctx context.Context, executionID events.ExecutionID, branchName string) error {
+func (s *RepositoryService) PushBranch(
+	ctx context.Context,
+	executionID events.ExecutionID,
+	branchName string,
+) error {
 	workspacePath := s.GetWorkspacePath(executionID)
 
 	pushCmd := exec.CommandContext(ctx, "git", "push", "origin", branchName)
@@ -298,7 +364,13 @@ func (s *RepositoryService) buildGitEnv() []string {
 
 	// Add SSH configuration if available
 	if s.cfg.GitSSHKeyPath != "" {
-		env = append(env, fmt.Sprintf("GIT_SSH_COMMAND=ssh -i %s -o StrictHostKeyChecking=accept-new", s.cfg.GitSSHKeyPath))
+		env = append(
+			env,
+			fmt.Sprintf(
+				"GIT_SSH_COMMAND=ssh -i %s -o StrictHostKeyChecking=accept-new",
+				s.cfg.GitSSHKeyPath,
+			),
+		)
 	}
 
 	// Add HTTPS credentials if available

@@ -11,6 +11,9 @@ import (
 	"github.com/antinvestor/builder/internal/events"
 )
 
+// Time conversion constants.
+const secondsPerHour = 3600
+
 // EventsEmitter emits events.
 type EventsEmitter interface {
 	Emit(ctx context.Context, eventName string, payload any) error
@@ -125,7 +128,7 @@ func (h *FeatureRequestHandler) Handle(
 		},
 		Constraints: events.ExecutionConstraints{
 			MaxSteps:       h.cfg.MaxStepsPerExecution,
-			TimeoutSeconds: h.cfg.ExecutionTimeoutHours * 3600,
+			TimeoutSeconds: h.cfg.ExecutionTimeoutHours * secondsPerHour,
 		},
 		Request: events.RequestMetadata{
 			RequestedBy:   request.RequestedBy,

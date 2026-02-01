@@ -68,35 +68,35 @@ type WorkerConfig struct {
 	// ==========================================================================
 
 	// Feature request queue (incoming)
-	QueueFeatureRequestName string `envDefault:"feature.requests" env:"QUEUE_FEATURE_REQUEST_NAME"`
+	QueueFeatureRequestName string `envDefault:"feature.requests"       env:"QUEUE_FEATURE_REQUEST_NAME"`
 	QueueFeatureRequestURI  string `envDefault:"mem://feature.requests" env:"QUEUE_FEATURE_REQUEST_URI"`
 
 	// Feature result queue (outgoing)
-	QueueFeatureResultName string `envDefault:"feature.results" env:"QUEUE_FEATURE_RESULT_NAME"`
+	QueueFeatureResultName string `envDefault:"feature.results"       env:"QUEUE_FEATURE_RESULT_NAME"`
 	QueueFeatureResultURI  string `envDefault:"mem://feature.results" env:"QUEUE_FEATURE_RESULT_URI"`
 
 	// Internal events queue
-	QueueInternalEventsName string `envDefault:"feature.events" env:"QUEUE_INTERNAL_EVENTS_NAME"`
+	QueueInternalEventsName string `envDefault:"feature.events"       env:"QUEUE_INTERNAL_EVENTS_NAME"`
 	QueueInternalEventsURI  string `envDefault:"mem://feature.events" env:"QUEUE_INTERNAL_EVENTS_URI"`
 
 	// Review queue (to reviewer service)
-	QueueReviewRequestName string `envDefault:"feature.review.requests" env:"QUEUE_REVIEW_REQUEST_NAME"`
+	QueueReviewRequestName string `envDefault:"feature.review.requests"       env:"QUEUE_REVIEW_REQUEST_NAME"`
 	QueueReviewRequestURI  string `envDefault:"mem://feature.review.requests" env:"QUEUE_REVIEW_REQUEST_URI"`
 
 	// Execution queue (to executor service)
-	QueueExecutionRequestName string `envDefault:"feature.execution.requests" env:"QUEUE_EXECUTION_REQUEST_NAME"`
+	QueueExecutionRequestName string `envDefault:"feature.execution.requests"       env:"QUEUE_EXECUTION_REQUEST_NAME"`
 	QueueExecutionRequestURI  string `envDefault:"mem://feature.execution.requests" env:"QUEUE_EXECUTION_REQUEST_URI"`
 
 	// Retry queues
-	QueueRetryLevel1Name string `envDefault:"feature.events.retry.1" env:"QUEUE_RETRY_L1_NAME"`
+	QueueRetryLevel1Name string `envDefault:"feature.events.retry.1"       env:"QUEUE_RETRY_L1_NAME"`
 	QueueRetryLevel1URI  string `envDefault:"mem://feature.events.retry.1" env:"QUEUE_RETRY_L1_URI"`
-	QueueRetryLevel2Name string `envDefault:"feature.events.retry.2" env:"QUEUE_RETRY_L2_NAME"`
+	QueueRetryLevel2Name string `envDefault:"feature.events.retry.2"       env:"QUEUE_RETRY_L2_NAME"`
 	QueueRetryLevel2URI  string `envDefault:"mem://feature.events.retry.2" env:"QUEUE_RETRY_L2_URI"`
-	QueueRetryLevel3Name string `envDefault:"feature.events.retry.3" env:"QUEUE_RETRY_L3_NAME"`
+	QueueRetryLevel3Name string `envDefault:"feature.events.retry.3"       env:"QUEUE_RETRY_L3_NAME"`
 	QueueRetryLevel3URI  string `envDefault:"mem://feature.events.retry.3" env:"QUEUE_RETRY_L3_URI"`
 
 	// Dead letter queue
-	QueueDLQName string `envDefault:"feature.events.dlq" env:"QUEUE_DLQ_NAME"`
+	QueueDLQName string `envDefault:"feature.events.dlq"       env:"QUEUE_DLQ_NAME"`
 	QueueDLQURI  string `envDefault:"mem://feature.events.dlq" env:"QUEUE_DLQ_URI"`
 
 	// ==========================================================================

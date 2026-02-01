@@ -85,23 +85,31 @@ func (h *RepositoryCheckoutEvent) Execute(ctx context.Context, payload any) erro
 		CommitSHA:     request.Repository.BaseCommitSHA,
 	})
 	if err != nil {
-		h.eventsMan.Emit(ctx, string(events.RepositoryCheckoutFailed), &events.RepositoryCheckoutFailedPayload{
-			ErrorCode:    events.CheckoutErrorNetwork,
-			ErrorMessage: err.Error(),
-			Retryable:    true,
-			FailedAt:     time.Now(),
-		})
+		_ = h.eventsMan.Emit(
+			ctx,
+			string(events.RepositoryCheckoutFailed),
+			&events.RepositoryCheckoutFailedPayload{
+				ErrorCode:    events.CheckoutErrorNetwork,
+				ErrorMessage: err.Error(),
+				Retryable:    true,
+				FailedAt:     time.Now(),
+			},
+		)
 		return err
 	}
 
 	// Emit completion
-	return h.eventsMan.Emit(ctx, string(events.RepositoryCheckoutCompleted), &events.RepositoryCheckoutCompletedPayload{
-		WorkspacePath: result.WorkspacePath,
-		HeadCommitSHA: result.CommitSHA,
-		BranchName:    result.Branch,
-		DurationMS:    result.CheckoutTimeMS,
-		CompletedAt:   time.Now(),
-	})
+	return h.eventsMan.Emit(
+		ctx,
+		string(events.RepositoryCheckoutCompleted),
+		&events.RepositoryCheckoutCompletedPayload{
+			WorkspacePath: result.WorkspacePath,
+			HeadCommitSHA: result.CommitSHA,
+			BranchName:    result.Branch,
+			DurationMS:    result.CheckoutTimeMS,
+			CompletedAt:   time.Now(),
+		},
+	)
 }
 
 // =============================================================================
@@ -196,13 +204,17 @@ func (h *PatchGenerationEvent) Execute(ctx context.Context, payload any) error {
 	}
 
 	// Emit patch generation completed
-	return h.eventsMan.Emit(ctx, string(events.PatchGenerationCompleted), &events.PatchGenerationCompletedPayload{
-		TotalSteps:     1,
-		StepsCompleted: 1,
-		TotalLLMTokens: resp.TokensUsed,
-		FinalCommitSHA: "stub-commit",
-		CompletedAt:    time.Now(),
-	})
+	return h.eventsMan.Emit(
+		ctx,
+		string(events.PatchGenerationCompleted),
+		&events.PatchGenerationCompletedPayload{
+			TotalSteps:     1,
+			StepsCompleted: 1,
+			TotalLLMTokens: resp.TokensUsed,
+			FinalCommitSHA: "stub-commit",
+			CompletedAt:    time.Now(),
+		},
+	)
 }
 
 // =============================================================================

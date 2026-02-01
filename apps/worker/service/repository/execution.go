@@ -14,16 +14,16 @@ import (
 type ExecutionStatus string
 
 const (
-	ExecutionStatusPending    ExecutionStatus = "pending"
-	ExecutionStatusRunning    ExecutionStatus = "running"
-	ExecutionStatusCompleted  ExecutionStatus = "completed"
-	ExecutionStatusFailed     ExecutionStatus = "failed"
-	ExecutionStatusAborted    ExecutionStatus = "aborted"
+	ExecutionStatusPending   ExecutionStatus = "pending"
+	ExecutionStatusRunning   ExecutionStatus = "running"
+	ExecutionStatusCompleted ExecutionStatus = "completed"
+	ExecutionStatusFailed    ExecutionStatus = "failed"
+	ExecutionStatusAborted   ExecutionStatus = "aborted"
 )
 
 // Execution represents a feature execution record.
 type Execution struct {
-	ID             string          `json:"id" gorm:"primaryKey"`
+	ID             string          `json:"id"                      gorm:"primaryKey"`
 	RepositoryURL  string          `json:"repository_url"`
 	Branch         string          `json:"branch"`
 	Title          string          `json:"title"`
@@ -98,7 +98,12 @@ func (r *PGExecutionRepository) GetByID(ctx context.Context, id string) (*Execut
 }
 
 // UpdateStatus updates the execution status.
-func (r *PGExecutionRepository) UpdateStatus(ctx context.Context, id string, status ExecutionStatus, errorMsg string) error {
+func (r *PGExecutionRepository) UpdateStatus(
+	ctx context.Context,
+	id string,
+	status ExecutionStatus,
+	errorMsg string,
+) error {
 	db := r.db(ctx, false)
 	if db == nil {
 		return nil
@@ -114,7 +119,8 @@ func (r *PGExecutionRepository) UpdateStatus(ctx context.Context, id string, sta
 	if status == ExecutionStatusRunning {
 		updates["started_at"] = &now
 	}
-	if status == ExecutionStatusCompleted || status == ExecutionStatusFailed || status == ExecutionStatusAborted {
+	if status == ExecutionStatusCompleted || status == ExecutionStatusFailed ||
+		status == ExecutionStatusAborted {
 		updates["completed_at"] = &now
 	}
 
@@ -148,7 +154,7 @@ type WorkspaceRepository interface {
 
 // Workspace represents a repository workspace.
 type Workspace struct {
-	ExecutionID   string    `json:"execution_id" gorm:"primaryKey"`
+	ExecutionID   string    `json:"execution_id"   gorm:"primaryKey"`
 	LocalPath     string    `json:"local_path"`
 	RepositoryURL string    `json:"repository_url"`
 	Branch        string    `json:"branch"`
@@ -178,7 +184,10 @@ func (r *MemoryWorkspaceRepository) Create(ctx context.Context, workspace *Works
 }
 
 // GetByExecutionID retrieves a workspace by execution ID.
-func (r *MemoryWorkspaceRepository) GetByExecutionID(ctx context.Context, executionID string) (*Workspace, error) {
+func (r *MemoryWorkspaceRepository) GetByExecutionID(
+	ctx context.Context,
+	executionID string,
+) (*Workspace, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	ws, ok := r.workspaces[executionID]

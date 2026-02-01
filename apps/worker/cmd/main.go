@@ -13,8 +13,14 @@ import (
 	"github.com/antinvestor/builder/apps/worker/service/events"
 	"github.com/antinvestor/builder/apps/worker/service/queue"
 	"github.com/antinvestor/builder/apps/worker/service/repository"
+	internalevents "github.com/antinvestor/builder/internal/events"
+	"github.com/antinvestor/builder/internal/llm"
 )
 
+// LLM configuration defaults.
+const defaultMaxOutputTokens = 16384
+
+//nolint:funlen // Main function initializes many components
 func main() {
 	ctx := context.Background()
 
@@ -63,7 +69,7 @@ func main() {
 	// ==========================================================================
 
 	repoService := repository.NewRepositoryService(&cfg, workspaceRepo)
-	bamlClient := setupBAMLClient(&cfg)
+	bamlClient := setupBAMLClient(ctx, &cfg)
 
 	// ==========================================================================
 	// Register Publishers
@@ -126,16 +132,16 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy","service":"worker"}`))
+		_, _ = w.Write([]byte(`{"status":"healthy","service":"worker"}`))
 	})
 
-	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ready","service":"worker"}`))
+		_, _ = w.Write([]byte(`{"status":"ready","service":"worker"}`))
 	})
 
 	// ==========================================================================
@@ -184,18 +190,111 @@ func handleDatabaseMigration(
 	return false
 }
 
-func setupBAMLClient(cfg *appconfig.WorkerConfig) events.BAMLClient {
-	return &bamlClientStub{cfg: cfg}
+func setupBAMLClient(ctx context.Context, cfg *appconfig.WorkerConfig) events.BAMLClient {
+	log := util.Log(ctx)
+
+	// Create LLM client configuration
+	llmCfg := llm.ClientConfig{
+		AnthropicAPIKey: cfg.AnthropicAPIKey,
+		OpenAIAPIKey:    cfg.OpenAIAPIKey,
+		GoogleAPIKey:    cfg.GoogleAPIKey,
+		DefaultProvider: llm.Provider(cfg.DefaultLLMProvider),
+		DefaultModel:    llm.ModelClaudeSonnet,
+		TimeoutSeconds:  cfg.LLMTimeoutSeconds,
+		MaxRetries:      cfg.LLMMaxRetries,
+		MaxOutputTokens: defaultMaxOutputTokens,
+		Temperature:     0.0,
+	}
+
+	// Try to create real LLM client
+	bamlClient, err := llm.NewBAMLClient(llmCfg)
+	if err != nil {
+		log.WithError(err).Warn("failed to create LLM client, using stub")
+		return &bamlClientStub{cfg: cfg}
+	}
+
+	log.Info("LLM client initialized",
+		"provider", cfg.DefaultLLMProvider,
+	)
+
+	return &bamlClientAdapter{client: bamlClient}
 }
 
+// bamlClientAdapter adapts llm.BAMLClient to events.BAMLClient.
+type bamlClientAdapter struct {
+	client *llm.BAMLClient
+}
+
+// GeneratePatch implements events.BAMLClient.
+func (a *bamlClientAdapter) GeneratePatch(
+	ctx context.Context,
+	req *events.GeneratePatchRequest,
+) (*events.GeneratePatchResponse, error) {
+	// Convert events.GeneratePatchRequest to llm.GeneratePatchRequest
+	llmReq := &llm.GeneratePatchRequest{
+		ExecutionID: req.ExecutionID.String(),
+		Specification: llm.FeatureSpecification{
+			Title:              req.Specification.Title,
+			Description:        req.Specification.Description,
+			AcceptanceCriteria: req.Specification.AcceptanceCriteria,
+			PathHints:          req.Specification.PathHints,
+			AdditionalContext:  req.Specification.AdditionalContext,
+			Category:           llm.FeatureCategory(req.Specification.Category),
+		},
+		WorkspacePath:      req.WorkspacePath,
+		RepositoryContext:  req.RepositoryContext,
+		IterationNumber:    req.IterationNumber,
+		FeedbackFromReview: req.FeedbackFromReview,
+	}
+
+	// Convert previous patches
+	for _, p := range req.PreviousPatches {
+		llmReq.PreviousPatches = append(llmReq.PreviousPatches, llm.Patch{
+			FilePath:   p.FilePath,
+			OldContent: p.OldContent,
+			NewContent: p.NewContent,
+			Action:     string(p.Action),
+		})
+	}
+
+	// Call the LLM client
+	resp, err := a.client.GeneratePatch(ctx, llmReq)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert llm.GeneratePatchResponse to events.GeneratePatchResponse
+	evtResp := &events.GeneratePatchResponse{
+		CommitMessage: resp.CommitMessage,
+		TokensUsed:    resp.TokensUsed,
+	}
+
+	// Convert patches
+	for _, p := range resp.Patches {
+		evtResp.Patches = append(evtResp.Patches, events.Patch{
+			FilePath:   p.FilePath,
+			OldContent: p.OldContent,
+			NewContent: p.NewContent,
+			Action:     internalevents.FileAction(p.Action),
+		})
+	}
+
+	return evtResp, nil
+}
+
+// bamlClientStub is a fallback stub when LLM is not configured.
 type bamlClientStub struct {
 	cfg *appconfig.WorkerConfig
 }
 
-func (c *bamlClientStub) GeneratePatch(ctx context.Context, req *events.GeneratePatchRequest) (*events.GeneratePatchResponse, error) {
+// GeneratePatch implements events.BAMLClient.
+func (c *bamlClientStub) GeneratePatch(
+	_ context.Context,
+	_ *events.GeneratePatchRequest,
+) (*events.GeneratePatchResponse, error) {
 	return &events.GeneratePatchResponse{
 		Patches:       []events.Patch{},
-		CommitMessage: "Generated by BAML",
+		CommitMessage: "Generated by BAML (stub)",
 		TokensUsed:    0,
 	}, nil
 }
