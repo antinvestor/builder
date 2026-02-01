@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/pitabwire/frame"
@@ -46,7 +47,7 @@ func main() {
 	securityAnalyzer := review.NewPatternSecurityAnalyzer(&cfg)
 	architectureAnalyzer := review.NewPatternArchitectureAnalyzer(&cfg)
 	decisionEngine := review.NewConservativeDecisionEngine(&cfg)
-	killSwitchService := review.NewDefaultKillSwitchService(&cfg, evtsMan)
+	killSwitchService := review.NewPersistentKillSwitchService(&cfg, evtsMan)
 
 	_ = securityAnalyzer
 	_ = architectureAnalyzer
@@ -112,9 +113,9 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		// TODO: Marshal status to JSON
-		_ = status
-		_, _ = w.Write([]byte(`{"global_active":false}`))
+		if encodeErr := json.NewEncoder(w).Encode(status); encodeErr != nil {
+			http.Error(w, "failed to encode status", http.StatusInternalServerError)
+		}
 	})
 
 	// ==========================================================================
