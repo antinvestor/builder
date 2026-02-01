@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	appconfig "github.com/antinvestor/builder/apps/worker/config"
@@ -13,8 +14,6 @@ import (
 )
 
 const (
-	// Git SHA length for commit references.
-	gitSHALength = 40
 	// Directory permissions for workspaces.
 	dirPermissions = 0o750
 	// File permissions for created files.
@@ -124,10 +123,7 @@ func (s *Service) Checkout(
 		if shaErr != nil {
 			return nil, fmt.Errorf("get commit SHA: %w", shaErr)
 		}
-		commitSHA = string(shaOutput)
-		if len(commitSHA) > gitSHALength {
-			commitSHA = commitSHA[:gitSHALength]
-		}
+		commitSHA = strings.TrimSpace(string(shaOutput))
 	}
 
 	// Record workspace
@@ -335,10 +331,7 @@ func (s *Service) CreateCommit(
 		return nil, fmt.Errorf("get commit SHA: %w", err)
 	}
 
-	commitSHA := string(shaOutput)
-	if len(commitSHA) > gitSHALength {
-		commitSHA = commitSHA[:gitSHALength]
-	}
+	commitSHA := strings.TrimSpace(string(shaOutput))
 
 	return &events.CommitInfo{
 		SHA:       commitSHA,

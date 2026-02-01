@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/pitabwire/util"
+
 	appconfig "github.com/antinvestor/builder/apps/worker/config"
 	"github.com/antinvestor/builder/apps/worker/service/repository"
 	"github.com/antinvestor/builder/internal/events"
@@ -90,7 +92,7 @@ func (h *RepositoryCheckoutEvent) Execute(ctx context.Context, payload any) erro
 		CommitSHA:     request.Repository.BaseCommitSHA,
 	})
 	if err != nil {
-		_ = h.eventsMan.Emit(
+		emitErr := h.eventsMan.Emit(
 			ctx,
 			string(events.RepositoryCheckoutFailed),
 			&events.RepositoryCheckoutFailedPayload{
@@ -100,6 +102,9 @@ func (h *RepositoryCheckoutEvent) Execute(ctx context.Context, payload any) erro
 				FailedAt:     time.Now(),
 			},
 		)
+		if emitErr != nil {
+			util.Log(ctx).Warn("failed to emit checkout failure event", "error", emitErr)
+		}
 		return err
 	}
 

@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS execution_steps (
 
     -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
 
@@ -113,6 +114,7 @@ CREATE TABLE IF NOT EXISTS patches (
 
     -- Timestamps
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT valid_patch_type CHECK (patch_type IN ('create', 'modify', 'delete', 'rename'))
 );
@@ -279,5 +281,19 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS executions_updated_at ON executions;
 CREATE TRIGGER executions_updated_at
     BEFORE UPDATE ON executions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
+
+-- Apply trigger to execution_steps
+DROP TRIGGER IF EXISTS execution_steps_updated_at ON execution_steps;
+CREATE TRIGGER execution_steps_updated_at
+    BEFORE UPDATE ON execution_steps
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
+
+-- Apply trigger to patches
+DROP TRIGGER IF EXISTS patches_updated_at ON patches;
+CREATE TRIGGER patches_updated_at
+    BEFORE UPDATE ON patches
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at();
