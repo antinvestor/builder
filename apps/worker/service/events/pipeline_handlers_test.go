@@ -614,10 +614,10 @@ func TestConvertToIterationIssues_Empty(t *testing.T) {
 
 func TestGenerateFeatureBranchName(t *testing.T) {
 	tests := []struct {
-		name     string
-		title    string
-		wantPfx  string
-		maxLen   int
+		name    string
+		title   string
+		wantPfx string
+		maxLen  int
 	}{
 		{
 			name:    "simple title",
@@ -647,8 +647,8 @@ func TestGenerateFeatureBranchName(t *testing.T) {
 			execID := events.NewExecutionID()
 			result := generateFeatureBranchName(tt.title, execID)
 
-			assert.True(t, len(result) > 0, "branch name should not be empty")
-			assert.True(t, len(result) <= 70, "branch name should not exceed 70 characters")
+			assert.NotEmpty(t, result, "branch name should not be empty")
+			assert.LessOrEqual(t, len(result), 70, "branch name should not exceed 70 characters")
 			assert.Contains(t, result, tt.wantPfx, "branch name should start with expected prefix")
 			assert.Contains(t, result, execID.String()[:shortIDLength], "branch name should contain short execution ID")
 		})
