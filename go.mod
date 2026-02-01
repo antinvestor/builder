@@ -1,6 +1,6 @@
 module github.com/antinvestor/builder
 
-go 1.25.2
+go 1.23
 
 require (
 	connectrpc.com/connect v1.19.1
