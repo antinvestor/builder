@@ -12,11 +12,17 @@ import (
 	"github.com/antinvestor/builder/internal/events"
 )
 
-// Git constants.
-const commitSHALength = 40
+const (
+	// Git SHA length for commit references.
+	gitSHALength = 40
+	// Directory permissions for workspaces.
+	dirPermissions = 0o750
+	// File permissions for created files.
+	filePermissions = 0o600
+)
 
-// RepositoryService handles git repository operations.
-type RepositoryService struct {
+// Service handles git repository operations.
+type Service struct {
 	cfg           *appconfig.WorkerConfig
 	workspaceRepo WorkspaceRepository
 
@@ -24,16 +30,26 @@ type RepositoryService struct {
 	cloneSem chan struct{}
 }
 
-// NewRepositoryService creates a new repository service.
-func NewRepositoryService(
+// NewService creates a new repository service.
+func NewService(
 	cfg *appconfig.WorkerConfig,
 	workspaceRepo WorkspaceRepository,
-) *RepositoryService {
-	return &RepositoryService{
+) *Service {
+	return &Service{
 		cfg:           cfg,
 		workspaceRepo: workspaceRepo,
 		cloneSem:      make(chan struct{}, cfg.MaxConcurrentClones),
 	}
+}
+
+// RepositoryService is an alias for Service for backwards compatibility.
+//
+//nolint:revive // intentional stutter for backwards compatibility
+type RepositoryService = Service
+
+// NewRepositoryService is an alias for NewService for backwards compatibility.
+func NewRepositoryService(cfg *appconfig.WorkerConfig, workspaceRepo WorkspaceRepository) *Service {
+	return NewService(cfg, workspaceRepo)
 }
 
 // CheckoutRequest contains data for repository checkout.
@@ -53,7 +69,7 @@ type CheckoutResult struct {
 }
 
 // Checkout clones or fetches a repository to the workspace.
-func (s *RepositoryService) Checkout(
+func (s *Service) Checkout(
 	ctx context.Context,
 	req *CheckoutRequest,
 ) (*CheckoutResult, error) {
@@ -69,7 +85,7 @@ func (s *RepositoryService) Checkout(
 
 	// Create workspace directory
 	workspacePath := filepath.Join(s.cfg.WorkspaceBasePath, req.ExecutionID.String())
-	if err := os.MkdirAll(workspacePath, 0750); err != nil {
+	if err := os.MkdirAll(workspacePath, dirPermissions); err != nil {
 		return nil, fmt.Errorf("create workspace directory: %w", err)
 	}
 
@@ -109,8 +125,8 @@ func (s *RepositoryService) Checkout(
 			return nil, fmt.Errorf("get commit SHA: %w", shaErr)
 		}
 		commitSHA = string(shaOutput)
-		if len(commitSHA) > commitSHALength {
-			commitSHA = commitSHA[:commitSHALength]
+		if len(commitSHA) > gitSHALength {
+			commitSHA = commitSHA[:gitSHALength]
 		}
 	}
 
@@ -137,7 +153,7 @@ func (s *RepositoryService) Checkout(
 }
 
 // GetWorkspace retrieves a workspace by execution ID.
-func (s *RepositoryService) GetWorkspace(
+func (s *Service) GetWorkspace(
 	ctx context.Context,
 	executionID events.ExecutionID,
 ) (*Workspace, error) {
@@ -145,13 +161,13 @@ func (s *RepositoryService) GetWorkspace(
 }
 
 // GetWorkspacePath returns the workspace path for an execution.
-func (s *RepositoryService) GetWorkspacePath(executionID events.ExecutionID) string {
+func (s *Service) GetWorkspacePath(executionID events.ExecutionID) string {
 	return filepath.Join(s.cfg.WorkspaceBasePath, executionID.String())
 }
 
 // ReadFiles reads the content of multiple files from a workspace.
-func (s *RepositoryService) ReadFiles(
-	ctx context.Context,
+func (s *Service) ReadFiles(
+	_ context.Context,
 	executionID events.ExecutionID,
 	paths []string,
 ) (map[string]string, error) {
@@ -181,7 +197,7 @@ func (s *RepositoryService) ReadFiles(
 }
 
 // GetProjectStructure returns the project structure as a string.
-func (s *RepositoryService) GetProjectStructure(
+func (s *Service) GetProjectStructure(
 	ctx context.Context,
 	executionID events.ExecutionID,
 ) (string, error) {
@@ -226,7 +242,7 @@ func (s *RepositoryService) GetProjectStructure(
 }
 
 // CleanupWorkspace removes a workspace.
-func (s *RepositoryService) CleanupWorkspace(
+func (s *Service) CleanupWorkspace(
 	ctx context.Context,
 	executionID events.ExecutionID,
 ) error {
@@ -236,8 +252,8 @@ func (s *RepositoryService) CleanupWorkspace(
 	}
 
 	// Remove directory
-	if removeErr := os.RemoveAll(workspace.LocalPath); removeErr != nil {
-		return fmt.Errorf("remove workspace directory: %w", removeErr)
+	if rmErr := os.RemoveAll(workspace.LocalPath); rmErr != nil {
+		return fmt.Errorf("remove workspace directory: %w", rmErr)
 	}
 
 	// Remove record
@@ -245,7 +261,7 @@ func (s *RepositoryService) CleanupWorkspace(
 }
 
 // ApplyPatch applies a patch to a file in the workspace.
-func (s *RepositoryService) ApplyPatch(
+func (s *Service) ApplyPatch(
 	ctx context.Context,
 	executionID events.ExecutionID,
 	patch *events.Patch,
@@ -260,17 +276,17 @@ func (s *RepositoryService) ApplyPatch(
 	switch patch.Action {
 	case events.FileActionCreate, events.FileActionModify:
 		// Ensure parent directory exists
-		if mkdirErr := os.MkdirAll(filepath.Dir(filePath), 0750); mkdirErr != nil {
+		if mkdirErr := os.MkdirAll(filepath.Dir(filePath), dirPermissions); mkdirErr != nil {
 			return fmt.Errorf("create parent directory: %w", mkdirErr)
 		}
 		// Write new content
-		if writeErr := os.WriteFile(filePath, []byte(patch.NewContent), 0600); writeErr != nil {
+		if writeErr := os.WriteFile(filePath, []byte(patch.NewContent), filePermissions); writeErr != nil {
 			return fmt.Errorf("write file: %w", writeErr)
 		}
 
 	case events.FileActionDelete:
-		if deleteErr := os.Remove(filePath); deleteErr != nil && !os.IsNotExist(deleteErr) {
-			return fmt.Errorf("delete file: %w", deleteErr)
+		if rmErr := os.Remove(filePath); rmErr != nil && !os.IsNotExist(rmErr) {
+			return fmt.Errorf("delete file: %w", rmErr)
 		}
 
 	case events.FileActionRename:
@@ -284,7 +300,7 @@ func (s *RepositoryService) ApplyPatch(
 }
 
 // CreateCommit creates a git commit in the workspace.
-func (s *RepositoryService) CreateCommit(
+func (s *Service) CreateCommit(
 	ctx context.Context,
 	executionID events.ExecutionID,
 	message string,
@@ -320,8 +336,8 @@ func (s *RepositoryService) CreateCommit(
 	}
 
 	commitSHA := string(shaOutput)
-	if len(commitSHA) > commitSHALength {
-		commitSHA = commitSHA[:commitSHALength]
+	if len(commitSHA) > gitSHALength {
+		commitSHA = commitSHA[:gitSHALength]
 	}
 
 	return &events.CommitInfo{
@@ -340,7 +356,7 @@ func (s *RepositoryService) CreateCommit(
 }
 
 // PushBranch pushes the feature branch to the remote.
-func (s *RepositoryService) PushBranch(
+func (s *Service) PushBranch(
 	ctx context.Context,
 	executionID events.ExecutionID,
 	branchName string,
@@ -359,7 +375,7 @@ func (s *RepositoryService) PushBranch(
 }
 
 // buildGitEnv builds environment variables for git commands.
-func (s *RepositoryService) buildGitEnv() []string {
+func (s *Service) buildGitEnv() []string {
 	env := os.Environ()
 
 	// Add SSH configuration if available

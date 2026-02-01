@@ -7,7 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pitabwire/frame/datastore"
 	"github.com/pitabwire/frame/datastore/pool"
+	"github.com/pitabwire/util"
 	"gorm.io/gorm"
 )
 
@@ -62,7 +64,7 @@ type PGExecutionRepository struct {
 }
 
 // NewExecutionRepository creates a new execution repository.
-func NewExecutionRepository(ctx context.Context, pool pool.Pool) ExecutionRepository {
+func NewExecutionRepository(_ context.Context, pool pool.Pool) ExecutionRepository {
 	return &PGExecutionRepository{
 		pool: pool,
 	}
@@ -143,9 +145,21 @@ func (r *PGExecutionRepository) IncrementIteration(ctx context.Context, id strin
 		UpdateColumn("updated_at", time.Now()).Error
 }
 
-// Migrate runs database migrations.
-func Migrate(ctx context.Context, dbManager interface{}, migrationPath string) error {
-	// Stub: In production, use proper migration tooling
+// Migrate runs database migrations using Frame's migration system.
+func Migrate(ctx context.Context, dbManager datastore.Manager, migrationPath string) error {
+	log := util.Log(ctx)
+	log.Info("running database migrations", "path", migrationPath)
+
+	dbPool := dbManager.GetPool(ctx, datastore.DefaultPoolName)
+	if dbPool == nil {
+		return errors.New("database pool not available")
+	}
+
+	if err := dbManager.Migrate(ctx, dbPool, migrationPath); err != nil {
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	log.Info("database migrations completed successfully")
 	return nil
 }
 
@@ -342,7 +356,7 @@ type MemoryWorkspaceRepository struct {
 }
 
 // Create creates a workspace record.
-func (r *MemoryWorkspaceRepository) Create(ctx context.Context, workspace *Workspace) error {
+func (r *MemoryWorkspaceRepository) Create(_ context.Context, workspace *Workspace) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	workspace.Status = WorkspaceStatusActive
@@ -353,7 +367,7 @@ func (r *MemoryWorkspaceRepository) Create(ctx context.Context, workspace *Works
 
 // GetByExecutionID retrieves a workspace by execution ID.
 func (r *MemoryWorkspaceRepository) GetByExecutionID(
-	ctx context.Context,
+	_ context.Context,
 	executionID string,
 ) (*Workspace, error) {
 	r.mu.RLock()
@@ -366,7 +380,7 @@ func (r *MemoryWorkspaceRepository) GetByExecutionID(
 }
 
 // Delete deletes a workspace record.
-func (r *MemoryWorkspaceRepository) Delete(ctx context.Context, executionID string) error {
+func (r *MemoryWorkspaceRepository) Delete(_ context.Context, executionID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.workspaces, executionID)

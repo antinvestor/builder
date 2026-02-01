@@ -72,7 +72,7 @@ type FeatureSpecification struct {
 // Handle processes incoming feature request messages.
 func (h *FeatureRequestHandler) Handle(
 	ctx context.Context,
-	headers map[string]string,
+	_ map[string]string,
 	payload []byte,
 ) error {
 	var request FeatureRequest
