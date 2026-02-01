@@ -98,7 +98,7 @@ func main() {
 		count := sandboxExecutor.ActiveCount()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"active_executions":%d}`, count)
+		_, _ = fmt.Fprintf(w, `{"active_executions":%d}`, count)
 	})
 
 	// ==========================================================================
