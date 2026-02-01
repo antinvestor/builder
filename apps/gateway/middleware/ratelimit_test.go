@@ -204,7 +204,6 @@ func TestGetClientID(t *testing.T) {
 
 func TestRateLimiter_Cleanup(t *testing.T) {
 	rl := NewRateLimiter(60, 10)
-	rl.cleanupTick = 100 * time.Millisecond
 	defer rl.Stop()
 
 	// Add a client
