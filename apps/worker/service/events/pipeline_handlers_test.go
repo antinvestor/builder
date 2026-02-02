@@ -785,3 +785,75 @@ func TestRepositoryCheckoutEvent_PayloadType(t *testing.T) {
 	handler := NewRepositoryCheckoutEvent(nil, nil, nil)
 	assert.IsType(t, &events.FeatureExecutionInitializedPayload{}, handler.PayloadType())
 }
+
+func TestClassifyPushError(t *testing.T) {
+	tests := []struct {
+		name          string
+		err           error
+		wantCode      events.GitPushErrorCode
+		wantRetryable bool
+	}{
+		{
+			name:          "authentication error",
+			err:           errors.New("authentication failed: invalid credentials"),
+			wantCode:      events.GitPushErrorAuth,
+			wantRetryable: false,
+		},
+		{
+			name:          "permission denied",
+			err:           errors.New("Permission denied (publickey)"),
+			wantCode:      events.GitPushErrorAuth,
+			wantRetryable: false,
+		},
+		{
+			name:          "protected branch",
+			err:           errors.New("protected branch hook declined"),
+			wantCode:      events.GitPushErrorProtected,
+			wantRetryable: false,
+		},
+		{
+			name:          "branch is protected",
+			err:           errors.New("branch is protected"),
+			wantCode:      events.GitPushErrorProtected,
+			wantRetryable: false,
+		},
+		{
+			name:          "non-fast-forward",
+			err:           errors.New("non-fast-forward updates were rejected"),
+			wantCode:      events.GitPushErrorRejected,
+			wantRetryable: true,
+		},
+		{
+			name:          "push rejected",
+			err:           errors.New("failed to push some refs"),
+			wantCode:      events.GitPushErrorRejected,
+			wantRetryable: true,
+		},
+		{
+			name:          "network timeout",
+			err:           errors.New("connection timeout"),
+			wantCode:      events.GitPushErrorNetwork,
+			wantRetryable: true,
+		},
+		{
+			name:          "unable to access",
+			err:           errors.New("unable to access 'https://github.com/.../'"),
+			wantCode:      events.GitPushErrorNetwork,
+			wantRetryable: true,
+		},
+		{
+			name:          "unknown error defaults to network",
+			err:           errors.New("some unknown error"),
+			wantCode:      events.GitPushErrorNetwork,
+			wantRetryable: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, retryable := classifyPushError(tt.err)
+			assert.Equal(t, tt.wantCode, code, "error code mismatch")
+			assert.Equal(t, tt.wantRetryable, retryable, "retryable mismatch")
+		})
+	}
+}

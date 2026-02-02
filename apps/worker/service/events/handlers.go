@@ -305,7 +305,7 @@ func (h *PatchGenerationEvent) setupPatchGeneration(
 
 	// Create feature branch before making changes
 	if err := h.repoService.CreateBranch(ctx, execID, request.FeatureBranchName); err != nil {
-		return h.emitGenerationFailure(ctx, execID, "branch_creation", err)
+		return h.emitGenerationFailure(ctx, execID, "branch_creation", err, events.StepErrorCategoryResource)
 	}
 
 	// Emit branch created event
@@ -345,7 +345,7 @@ func (h *PatchGenerationEvent) generateAndApplyPatches(
 		IterationNumber:   1,
 	})
 	if err != nil {
-		return nil, nil, h.emitGenerationFailure(ctx, execID, "llm_generation", err)
+		return nil, nil, h.emitGenerationFailure(ctx, execID, "llm_generation", err, events.StepErrorCategoryLLM)
 	}
 
 	// Apply patches and collect stats
@@ -376,7 +376,9 @@ func (h *PatchGenerationEvent) applyPatches(
 
 		if applyErr := h.repoService.ApplyPatch(ctx, execID, eventsPatch); applyErr != nil {
 			log.WithError(applyErr).Error("failed to apply patch", "file", patch.FilePath)
-			return nil, h.emitGenerationFailure(ctx, execID, "patch_application", applyErr)
+			return nil, h.emitGenerationFailure(
+				ctx, execID, "patch_application", applyErr, events.StepErrorCategoryResource,
+			)
 		}
 
 		h.updatePatchStats(stats, &patch)
@@ -419,7 +421,7 @@ func (h *PatchGenerationEvent) commitAndPush(
 
 	commitInfo, err := h.repoService.CreateCommit(ctx, execID, commitMessage)
 	if err != nil {
-		return nil, h.emitGenerationFailure(ctx, execID, "commit_creation", err)
+		return nil, h.emitGenerationFailure(ctx, execID, "commit_creation", err, events.StepErrorCategoryResource)
 	}
 
 	// Emit commit created event
@@ -459,7 +461,7 @@ func (h *PatchGenerationEvent) pushBranch(
 
 	if err := h.repoService.PushBranch(ctx, execID, request.FeatureBranchName); err != nil {
 		h.emitPushFailure(ctx, request.FeatureBranchName, err)
-		return h.emitGenerationFailure(ctx, execID, "push", err)
+		return h.emitGenerationFailure(ctx, execID, "push", err, events.StepErrorCategoryResource)
 	}
 
 	return nil
@@ -468,15 +470,49 @@ func (h *PatchGenerationEvent) pushBranch(
 // emitPushFailure emits a push failed event.
 func (h *PatchGenerationEvent) emitPushFailure(ctx context.Context, branchName string, err error) {
 	log := util.Log(ctx)
+	errorCode, retryable := classifyPushError(err)
 	pushFailErr := h.eventsMan.Emit(ctx, string(events.GitPushFailed), &events.GitPushFailedPayload{
 		BranchName:   branchName,
-		ErrorCode:    events.GitPushErrorNetwork,
+		ErrorCode:    errorCode,
 		ErrorMessage: err.Error(),
-		Retryable:    true,
+		Retryable:    retryable,
 		FailedAt:     time.Now(),
 	})
 	if pushFailErr != nil {
 		log.Warn("failed to emit push failed event", "error", pushFailErr)
+	}
+}
+
+// classifyPushError determines the error code and retryability based on error message.
+func classifyPushError(err error) (events.GitPushErrorCode, bool) {
+	errMsg := strings.ToLower(err.Error())
+
+	switch {
+	case strings.Contains(errMsg, "authentication") ||
+		strings.Contains(errMsg, "permission denied") ||
+		strings.Contains(errMsg, "could not read from remote") ||
+		strings.Contains(errMsg, "invalid credentials"):
+		return events.GitPushErrorAuth, false
+
+	case strings.Contains(errMsg, "protected branch") ||
+		strings.Contains(errMsg, "branch is protected") ||
+		strings.Contains(errMsg, "cannot force push"):
+		return events.GitPushErrorProtected, false
+
+	case strings.Contains(errMsg, "non-fast-forward") ||
+		strings.Contains(errMsg, "rejected") ||
+		strings.Contains(errMsg, "failed to push"):
+		return events.GitPushErrorRejected, true
+
+	case strings.Contains(errMsg, "timeout") ||
+		strings.Contains(errMsg, "connection") ||
+		strings.Contains(errMsg, "network") ||
+		strings.Contains(errMsg, "unable to access"):
+		return events.GitPushErrorNetwork, true
+
+	default:
+		// Default to network error with retry for unknown errors
+		return events.GitPushErrorNetwork, true
 	}
 }
 
@@ -554,6 +590,7 @@ func (h *PatchGenerationEvent) emitGenerationFailure(
 	_ events.ExecutionID, // execID reserved for future use
 	phase string,
 	err error,
+	category events.StepErrorCategory,
 ) error {
 	log := util.Log(ctx)
 
@@ -561,7 +598,7 @@ func (h *PatchGenerationEvent) emitGenerationFailure(
 		StepNumber:    1,
 		ErrorCode:     phase,
 		ErrorMessage:  err.Error(),
-		ErrorCategory: events.StepErrorCategoryLLM,
+		ErrorCategory: category,
 		Retryable:     true,
 		FailedAt:      time.Now(),
 	})
@@ -577,13 +614,7 @@ func countLines(s string) int {
 	if s == "" {
 		return 0
 	}
-	count := 1
-	for _, c := range s {
-		if c == '\n' {
-			count++
-		}
-	}
-	return count
+	return 1 + strings.Count(s, "\n")
 }
 
 // =============================================================================
