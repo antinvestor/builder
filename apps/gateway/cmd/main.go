@@ -10,6 +10,7 @@ import (
 
 	appconfig "github.com/antinvestor/builder/apps/gateway/config"
 	"github.com/antinvestor/builder/apps/gateway/middleware"
+	"github.com/antinvestor/builder/apps/gateway/service/handlers"
 )
 
 func main() {
@@ -35,9 +36,6 @@ func main() {
 	defer svc.Stop(ctx)
 	log := svc.Log(ctx)
 
-	// Get queue manager for publishing
-	qMan := svc.QueueManager()
-
 	// Setup Security and Middleware
 	securityMan := svc.SecurityManager()
 	authenticator := securityMan.GetAuthenticator(ctx)
@@ -60,13 +58,25 @@ func main() {
 		cfg.QueueFeatureRequestURI,
 	)
 
+	// NOTE: We call svc.Init twice due to a dependency ordering requirement:
+	// 1. First Init registers publishers, making QueueManager available
+	// 2. QueueManager is needed to create the FeatureRequestHandler
+	// 3. Handler is needed to build the HTTP mux
+	// 4. Second Init registers the HTTP handler with the built mux
+	// This is a valid pattern in Frame when handlers depend on initialized services.
+	svc.Init(ctx, featureRequestPublisher)
+
+	// Get queue manager for publishing (available after Init registers publishers)
+	qMan := svc.QueueManager()
+
+	// Create feature request handler with queue dependency
+	featureHandler := handlers.NewFeatureRequestHandler(&cfg, qMan)
+
 	// Setup HTTP Handlers and Routes
-	mux := setupRoutes(log, authMiddleware, rateLimiter)
+	mux := setupRoutes(log, authMiddleware, rateLimiter, featureHandler)
 
-	_ = qMan // Will be used in feature endpoint for publishing
-
-	// Initialize and Run Service
-	svc.Init(ctx, frame.WithHTTPHandler(mux), featureRequestPublisher)
+	// Register HTTP handler (second Init with mux built from initialized dependencies)
+	svc.Init(ctx, frame.WithHTTPHandler(mux))
 
 	log.Info("Starting feature gateway service...")
 	if err = svc.Run(ctx, ""); err != nil {
@@ -78,6 +88,7 @@ func setupRoutes(
 	log *util.LogEntry,
 	authMiddleware *middleware.AuthMiddleware,
 	rateLimiter *middleware.RateLimiter,
+	featureHandler *handlers.FeatureRequestHandler,
 ) *http.ServeMux {
 	mux := http.NewServeMux()
 
@@ -88,8 +99,12 @@ func setupRoutes(
 	// Feature endpoint - requires auth and rate limiting
 	mux.Handle("/api/v1/features",
 		rateLimiter.Middleware(
-			authMiddleware.Middleware(featureHandler(log)),
+			authMiddleware.Middleware(featureHandler),
 		),
+	)
+
+	log.Info("routes configured",
+		"endpoints", []string{"/health", "/ready", "/api/v1/features"},
 	)
 
 	return mux
@@ -111,36 +126,6 @@ func readyHandler(log *util.LogEntry) http.Handler {
 		w.WriteHeader(http.StatusOK)
 		if _, writeErr := w.Write([]byte(`{"status":"ready","service":"gateway"}`)); writeErr != nil {
 			log.WithError(writeErr).Error("failed to write ready response")
-		}
-	})
-}
-
-func featureHandler(log *util.LogEntry) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			_, _ = w.Write([]byte(`{"error":"method_not_allowed","message":"Only POST method is allowed"}`))
-			return
-		}
-
-		// Get authenticated user
-		claims := middleware.GetUserFromContext(r.Context())
-		userID := ""
-		if claims != nil {
-			userID, _ = claims.GetSubject()
-		}
-
-		log.Info("feature request received",
-			"user_id", userID,
-			"path", r.URL.Path,
-		)
-
-		// TODO: Parse request and publish to queue
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusAccepted)
-		if _, writeErr := w.Write([]byte(`{"status":"accepted","message":"Feature request queued"}`)); writeErr != nil {
-			log.WithError(writeErr).Error("failed to write feature response")
 		}
 	})
 }
