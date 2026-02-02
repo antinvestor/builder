@@ -58,19 +58,24 @@ func main() {
 		cfg.QueueFeatureRequestURI,
 	)
 
-	// Initialize service with publishers before creating handlers
+	// NOTE: We call svc.Init twice due to a dependency ordering requirement:
+	// 1. First Init registers publishers, making QueueManager available
+	// 2. QueueManager is needed to create the FeatureRequestHandler
+	// 3. Handler is needed to build the HTTP mux
+	// 4. Second Init registers the HTTP handler with the built mux
+	// This is a valid pattern in Frame when handlers depend on initialized services.
 	svc.Init(ctx, featureRequestPublisher)
 
-	// Get queue manager for publishing (after Init registers publishers)
+	// Get queue manager for publishing (available after Init registers publishers)
 	qMan := svc.QueueManager()
 
-	// Create feature request handler
+	// Create feature request handler with queue dependency
 	featureHandler := handlers.NewFeatureRequestHandler(&cfg, qMan)
 
 	// Setup HTTP Handlers and Routes
 	mux := setupRoutes(log, authMiddleware, rateLimiter, featureHandler)
 
-	// Set HTTP handler and run service
+	// Register HTTP handler (second Init with mux built from initialized dependencies)
 	svc.Init(ctx, frame.WithHTTPHandler(mux))
 
 	log.Info("Starting feature gateway service...")
