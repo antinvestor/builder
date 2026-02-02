@@ -1,0 +1,6 @@
+# Staging environment configuration
+baseURL = 'https://staging.ant.build/'
+
+[params]
+  gatewayURL = "https://api-staging.ant.build"
+  environment = "staging"

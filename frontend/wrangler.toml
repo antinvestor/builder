@@ -1,0 +1,21 @@
+# Cloudflare Pages configuration for ant.build frontend
+# https://developers.cloudflare.com/pages/configuration/wrangler-configuration/
+
+name = "ant-build"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "public"
+
+# Build configuration
+[build]
+command = "make build-production"
+
+# Environment-specific settings
+[env.staging]
+name = "ant-build-staging"
+[env.staging.build]
+command = "make build-staging"
+
+[env.production]
+name = "ant-build"
+[env.production.build]
+command = "make build-production"
