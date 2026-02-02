@@ -1,0 +1,6 @@
+# Production environment configuration
+baseURL = 'https://ant.build/'
+
+[params]
+  gatewayURL = "https://api.ant.build"
+  environment = "production"

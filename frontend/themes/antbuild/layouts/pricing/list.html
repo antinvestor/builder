@@ -1,0 +1,174 @@
+{{ define "main" }}
+
+<div class="page-header">
+  <div class="container">
+    <h1>Simple, Transparent Pricing</h1>
+    <p>Code generation is always free. Pay only when you deploy.</p>
+  </div>
+</div>
+
+<section class="pricing" style="padding-top: var(--section-padding); background: transparent;">
+  <div class="container">
+    <div style="max-width: 1200px; margin: 0 auto;">
+
+      <!-- Free Tier Highlight -->
+      <div style="text-align: center; margin-bottom: 4rem; padding: 2rem; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 1rem;">
+        <h2 style="color: var(--accent-green); margin-bottom: 0.5rem;">✨ Code Generation is FREE Forever</h2>
+        <p style="font-size: 1.125rem; max-width: 600px; margin: 0 auto;">Generate unlimited code, iterate as many times as you want, integrate with any repository. No credit card required, no trial period.</p>
+      </div>
+
+      <div class="pricing-grid" style="max-width: none; grid-template-columns: repeat(4, 1fr);">
+        <!-- Free -->
+        <div class="pricing-card">
+          <div class="pricing-header">
+            <div class="pricing-name">Free</div>
+            <div class="pricing-price">$0<span>/forever</span></div>
+            <div class="pricing-description">Development & Generation</div>
+          </div>
+          <ul class="pricing-features">
+            <li>Unlimited code generation</li>
+            <li>All programming languages</li>
+            <li>All frameworks supported</li>
+            <li>Git repository integration</li>
+            <li>Automatic testing</li>
+            <li>Security scanning</li>
+            <li>Unlimited iterations</li>
+            <li>Community Discord support</li>
+          </ul>
+          <a href="/#prompt-builder" class="btn btn-secondary pricing-cta">Start Free</a>
+        </div>
+
+        <!-- Starter -->
+        <div class="pricing-card">
+          <div class="pricing-header">
+            <div class="pricing-name">Starter</div>
+            <div class="pricing-price">$9<span>/month</span></div>
+            <div class="pricing-description">Side projects & MVPs</div>
+          </div>
+          <ul class="pricing-features">
+            <li>Everything in Free</li>
+            <li>1 deployed application</li>
+            <li>1 custom domain</li>
+            <li>Free SSL certificate</li>
+            <li>1 GB storage</li>
+            <li>10 GB bandwidth/month</li>
+            <li>Basic analytics</li>
+            <li>Email support</li>
+          </ul>
+          <a href="/provision/" class="btn btn-secondary pricing-cta">Get Started</a>
+        </div>
+
+        <!-- Pro -->
+        <div class="pricing-card featured">
+          <div class="pricing-header">
+            <div class="pricing-name">Pro</div>
+            <div class="pricing-price">$49<span>/month</span></div>
+            <div class="pricing-description">Growing businesses</div>
+          </div>
+          <ul class="pricing-features">
+            <li>Everything in Starter</li>
+            <li>10 deployed applications</li>
+            <li>10 custom domains</li>
+            <li>50 GB storage</li>
+            <li>100 GB bandwidth/month</li>
+            <li>Auto-scaling</li>
+            <li>Advanced analytics</li>
+            <li>Priority email support</li>
+            <li>99.9% uptime SLA</li>
+          </ul>
+          <a href="/provision/" class="btn btn-primary pricing-cta">Get Started</a>
+        </div>
+
+        <!-- Enterprise -->
+        <div class="pricing-card">
+          <div class="pricing-header">
+            <div class="pricing-name">Enterprise</div>
+            <div class="pricing-price">Custom</div>
+            <div class="pricing-description">Large organizations</div>
+          </div>
+          <ul class="pricing-features">
+            <li>Everything in Pro</li>
+            <li>Unlimited applications</li>
+            <li>Unlimited domains</li>
+            <li>Unlimited storage</li>
+            <li>Dedicated infrastructure</li>
+            <li>Custom SLA (up to 99.99%)</li>
+            <li>SSO/SAML integration</li>
+            <li>Dedicated support manager</li>
+            <li>On-premise deployment</li>
+            <li>SOC2 compliance</li>
+          </ul>
+          <a href="/contact/" class="btn btn-secondary pricing-cta">Contact Sales</a>
+        </div>
+      </div>
+
+      <!-- Domain Pricing -->
+      <div style="margin-top: 4rem;">
+        <h2 style="text-align: center; margin-bottom: 2rem;">Domain Registration</h2>
+        <div class="features-grid" style="max-width: 800px; margin: 0 auto;">
+          <div class="feature-card" style="text-align: center;">
+            <h3>.com</h3>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green); margin: 1rem 0;">$12<span style="font-size: 1rem; color: var(--text-muted);">/year</span></div>
+            <p>Most popular choice</p>
+          </div>
+          <div class="feature-card" style="text-align: center;">
+            <h3>.io</h3>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green); margin: 1rem 0;">$39<span style="font-size: 1rem; color: var(--text-muted);">/year</span></div>
+            <p>Developer favorite</p>
+          </div>
+          <div class="feature-card" style="text-align: center;">
+            <h3>.dev</h3>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green); margin: 1rem 0;">$15<span style="font-size: 1rem; color: var(--text-muted);">/year</span></div>
+            <p>Built for developers</p>
+          </div>
+          <div class="feature-card" style="text-align: center;">
+            <h3>.app</h3>
+            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-green); margin: 1rem 0;">$18<span style="font-size: 1rem; color: var(--text-muted);">/year</span></div>
+            <p>Perfect for apps</p>
+          </div>
+        </div>
+        <p style="text-align: center; margin-top: 1.5rem; color: var(--text-muted);">All domains include free WHOIS privacy, DNS management, and auto-renewal.</p>
+      </div>
+
+      <!-- FAQ -->
+      <div style="margin-top: 4rem;">
+        <h2 style="text-align: center; margin-bottom: 2rem;">Frequently Asked Questions</h2>
+        <div style="max-width: 800px; margin: 0 auto;">
+          <div style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem; margin-bottom: 1rem;">
+            <h4 style="margin-bottom: 0.5rem;">Is code generation really free?</h4>
+            <p style="color: var(--text-secondary);">Yes, completely free with no limits. Generate as much code as you want, iterate unlimited times, and integrate with any repository. We only charge when you're ready to deploy.</p>
+          </div>
+          <div style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem; margin-bottom: 1rem;">
+            <h4 style="margin-bottom: 0.5rem;">What happens if I exceed my limits?</h4>
+            <p style="color: var(--text-secondary);">We'll notify you before you hit your limits. You can upgrade your plan instantly or add additional resources à la carte.</p>
+          </div>
+          <div style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem; margin-bottom: 1rem;">
+            <h4 style="margin-bottom: 0.5rem;">Can I bring my own domain?</h4>
+            <p style="color: var(--text-secondary);">Absolutely! You can use domains you already own, or purchase new ones through us. We handle all DNS configuration automatically.</p>
+          </div>
+          <div style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 0.75rem; margin-bottom: 1rem;">
+            <h4 style="margin-bottom: 0.5rem;">Is there a money-back guarantee?</h4>
+            <p style="color: var(--text-secondary);">Yes, we offer a 30-day money-back guarantee on all hosting plans. No questions asked.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{ end }}
+
+{{ define "scripts" }}
+<style>
+  @media (max-width: 1024px) {
+    .pricing-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+  }
+  @media (max-width: 640px) {
+    .pricing-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
+{{ end }}

@@ -1,0 +1,17 @@
+{
+  "name": "{{ .Site.Title }}",
+  "description": "{{ .Site.Params.description }}",
+  "url": "{{ .Permalink }}",
+  "pages": [
+    {{- $pages := where .Site.RegularPages "Draft" false -}}
+    {{- range $index, $page := $pages }}
+    {{- if $index }},{{ end }}
+    {
+      "title": {{ .Title | jsonify }},
+      "url": "{{ .Permalink }}",
+      "date": "{{ .Date.Format "2006-01-02" }}",
+      "section": "{{ .Section }}"
+    }
+    {{- end }}
+  ]
+}
