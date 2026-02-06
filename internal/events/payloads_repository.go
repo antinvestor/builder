@@ -27,13 +27,17 @@ const (
 
 // RepositoryCheckoutCompletedPayload is the payload for RepositoryCheckoutCompleted.
 type RepositoryCheckoutCompletedPayload struct {
-	WorkspacePath     string            `json:"workspace_path"`
-	HeadCommitSHA     string            `json:"head_commit_sha"`
-	HeadCommitMessage string            `json:"head_commit_message"`
-	BranchName        string            `json:"branch_name"`
-	Metrics           RepositoryMetrics `json:"metrics"`
-	DurationMS        int64             `json:"duration_ms"`
-	CompletedAt       time.Time         `json:"completed_at"`
+	ExecutionID       ExecutionID          `json:"execution_id"`
+	WorkspacePath     string               `json:"workspace_path"`
+	HeadCommitSHA     string               `json:"head_commit_sha"`
+	HeadCommitMessage string               `json:"head_commit_message"`
+	BranchName        string               `json:"branch_name"`
+	FeatureBranchName string               `json:"feature_branch_name"`
+	Spec              FeatureSpecification `json:"spec"`
+	RepositoryURL     string               `json:"repository_url"`
+	Metrics           RepositoryMetrics    `json:"metrics"`
+	DurationMS        int64                `json:"duration_ms"`
+	CompletedAt       time.Time            `json:"completed_at"`
 }
 
 // RepositoryMetrics contains repository statistics.
