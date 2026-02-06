@@ -6,6 +6,7 @@ import "time"
 
 // FeatureExecutionInitializedPayload is the payload for FeatureExecutionInitialized.
 type FeatureExecutionInitializedPayload struct {
+	ExecutionID ExecutionID          `json:"execution_id"`
 	Spec        FeatureSpecification `json:"spec"`
 	Repository  RepositoryContext    `json:"repository"`
 	Constraints ExecutionConstraints `json:"constraints"`

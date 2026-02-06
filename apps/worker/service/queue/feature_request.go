@@ -116,6 +116,7 @@ func (h *FeatureRequestHandler) Handle(
 
 	// Emit initialization event
 	initPayload := &events.FeatureExecutionInitializedPayload{
+		ExecutionID: execID,
 		Spec: events.FeatureSpecification{
 			Title:              request.Specification.Title,
 			Description:        request.Specification.Description,
