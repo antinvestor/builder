@@ -37,14 +37,23 @@ type RetryPolicy struct {
 	RetryableErrors []string `json:"retryable_errors,omitempty"`
 }
 
+// Default retry policy values.
+const (
+	defaultMaxRetries        = 5
+	defaultInitialDelayMS    = 1000   // 1 second
+	defaultMaxDelayMS        = 300000 // 5 minutes
+	defaultBackoffMultiplier = 2.0
+	defaultJitter            = 0.1
+)
+
 // DefaultRetryPolicy returns the default retry policy.
 func DefaultRetryPolicy() RetryPolicy {
 	return RetryPolicy{
-		MaxRetries:        5,
-		InitialDelayMS:    1000,   // 1 second
-		MaxDelayMS:        300000, // 5 minutes
-		BackoffMultiplier: 2.0,
-		Jitter:            0.1,
+		MaxRetries:        defaultMaxRetries,
+		InitialDelayMS:    defaultInitialDelayMS,
+		MaxDelayMS:        defaultMaxDelayMS,
+		BackoffMultiplier: defaultBackoffMultiplier,
+		Jitter:            defaultJitter,
 		RetryableErrors: []string{
 			"network",
 			"timeout",

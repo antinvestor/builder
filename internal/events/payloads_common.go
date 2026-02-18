@@ -64,7 +64,7 @@ type SecretDetection struct {
 // Assessment Completion Flags
 // =============================================================================
 
-// SecurityAssessment additions - completion flags.
+// SetPassesReview sets whether the security assessment passes review.
 func (s *SecurityAssessment) SetPassesReview(passes bool) {
 	s.RequiresSecurityReview = !passes
 }

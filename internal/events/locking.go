@@ -227,7 +227,7 @@ func calculateLockBackoff(attempt int) time.Duration {
 
 // TryAcquire attempts to acquire a lock without blocking.
 func (m *InMemoryLockManager) TryAcquire(
-	ctx context.Context,
+	_ context.Context,
 	key string,
 	owner string,
 	ttl time.Duration,

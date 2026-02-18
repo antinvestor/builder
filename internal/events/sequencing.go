@@ -93,7 +93,7 @@ func (m *InMemorySequenceManager) ValidateSequence(
 
 // ReserveSequenceRange reserves a range of sequence numbers.
 func (m *InMemorySequenceManager) ReserveSequenceRange(
-	ctx context.Context,
+	_ context.Context,
 	executionID ExecutionID,
 	count int,
 ) (uint64, uint64, error) {

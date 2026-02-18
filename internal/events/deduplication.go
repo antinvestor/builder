@@ -117,7 +117,7 @@ func (s *InMemoryDeduplicationStore) periodicCleanup() {
 
 // MarkProcessed marks an event as processed.
 func (s *InMemoryDeduplicationStore) MarkProcessed(
-	ctx context.Context,
+	_ context.Context,
 	eventID EventID,
 	executionID ExecutionID,
 ) error {
@@ -134,7 +134,7 @@ func (s *InMemoryDeduplicationStore) MarkProcessed(
 }
 
 // IsProcessed checks if an event has been processed.
-func (s *InMemoryDeduplicationStore) IsProcessed(ctx context.Context, eventID EventID) (bool, error) {
+func (s *InMemoryDeduplicationStore) IsProcessed(_ context.Context, eventID EventID) (bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -144,7 +144,7 @@ func (s *InMemoryDeduplicationStore) IsProcessed(ctx context.Context, eventID Ev
 
 // MarkProcessedWithResult marks an event as processed with its result.
 func (s *InMemoryDeduplicationStore) MarkProcessedWithResult(
-	ctx context.Context,
+	_ context.Context,
 	eventID EventID,
 	executionID ExecutionID,
 	result *ProcessingResult,
@@ -164,7 +164,7 @@ func (s *InMemoryDeduplicationStore) MarkProcessedWithResult(
 
 // GetProcessingResult returns the result of a processed event.
 func (s *InMemoryDeduplicationStore) GetProcessingResult(
-	ctx context.Context,
+	_ context.Context,
 	eventID EventID,
 ) (*ProcessingResult, error) {
 	s.mu.RLock()

@@ -733,7 +733,7 @@ const (
 	InsecurePatternSSRF                InsecurePatternType = "ssrf"
 	InsecurePatternOpenRedirect        InsecurePatternType = "open_redirect"
 	InsecurePatternInsecureDeserialize InsecurePatternType = "insecure_deserialize"
-	InsecurePatternHardcodedCreds      InsecurePatternType = "hardcoded_credentials"
+	InsecurePatternHardcodedCreds      InsecurePatternType = "hardcoded_credentials" //nolint:gosec // This is an enum value, not actual credentials
 	InsecurePatternWeakCrypto          InsecurePatternType = "weak_crypto"
 	InsecurePatternInsecureRandom      InsecurePatternType = "insecure_random"
 	InsecurePatternMissingAuth         InsecurePatternType = "missing_auth"
@@ -1344,17 +1344,27 @@ type ReviewThresholds struct {
 	RequireArchitectApproval bool `json:"require_architect_approval"`
 }
 
+// Default review threshold values.
+const (
+	defaultMaxRiskScore             = 50 // Conservative: 50/100 max risk
+	defaultMaxSecurityRiskScore     = 30 // Very conservative for security
+	defaultMaxArchitectureRiskScore = 40 // Conservative for architecture
+	defaultMinTestCoverage          = 70 // Require 70% coverage
+	defaultMaxHighIssues            = 2  // Allow up to 2 high issues
+	defaultMaxIterations            = 3  // Max 3 iterations
+)
+
 // DefaultReviewThresholds returns conservative default thresholds.
 func DefaultReviewThresholds() ReviewThresholds {
 	return ReviewThresholds{
-		MaxRiskScore:             50, // Conservative: 50/100 max risk
-		MaxSecurityRiskScore:     30, // Very conservative for security
-		MaxArchitectureRiskScore: 40, // Conservative for architecture
-		MinTestCoverage:          70, // Require 70% coverage
-		MaxCriticalIssues:        0,  // Zero tolerance for critical
-		MaxHighIssues:            2,  // Allow up to 2 high issues
-		MaxBreakingChanges:       0,  // Zero breaking changes
-		MaxIterations:            3,  // Max 3 iterations
+		MaxRiskScore:             defaultMaxRiskScore,
+		MaxSecurityRiskScore:     defaultMaxSecurityRiskScore,
+		MaxArchitectureRiskScore: defaultMaxArchitectureRiskScore,
+		MinTestCoverage:          defaultMinTestCoverage,
+		MaxCriticalIssues:        0, // Zero tolerance for critical
+		MaxHighIssues:            defaultMaxHighIssues,
+		MaxBreakingChanges:       0, // Zero breaking changes
+		MaxIterations:            defaultMaxIterations,
 		RequireSecurityApproval:  true,
 		RequireArchitectApproval: false,
 	}
