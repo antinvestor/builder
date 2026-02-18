@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -15,7 +16,7 @@ type JSONMap = map[string]any
 // =============================================================================
 
 // QueueConfig defines configuration for a queue using Frame primitives.
-// Queue URIs support multiple backends: mem://, nats://, kafka://
+// Queue URIs support multiple backends: mem://, nats://, kafka://.
 type QueueConfig struct {
 	// Name is the queue/topic name used for registration.
 	Name string `json:"name"`
@@ -177,7 +178,7 @@ func EventToQueuePayload(event *Event) (JSONMap, map[string]string, error) {
 		"event_type":     event.EventType.String(),
 		"event_id":       event.EventID.String(),
 		"execution_id":   event.FeatureExecutionID.String(),
-		"sequence":       fmt.Sprintf("%d", event.SequenceNumber),
+		"sequence":       strconv.FormatUint(event.SequenceNumber, 10),
 		"schema_version": event.SchemaVersion,
 	}
 
@@ -211,7 +212,7 @@ type EventEmitter struct {
 }
 
 // NewEventEmitter creates a new event emitter.
-// Usage: emitter := NewEventEmitter(svc.EventsManager().Emit)
+// Usage: emitter := NewEventEmitter(svc.EventsManager().Emit).
 func NewEventEmitter(emitFunc func(ctx context.Context, name string, payload any) error) *EventEmitter {
 	return &EventEmitter{emitFunc: emitFunc}
 }
@@ -237,8 +238,10 @@ type QueuePublisher struct {
 }
 
 // NewQueuePublisher creates a new queue publisher.
-// Usage: publisher := NewQueuePublisher(svc.QueueManager().Publish)
-func NewQueuePublisher(publishFunc func(ctx context.Context, queueName string, payload any, headers map[string]string) error) *QueuePublisher {
+// Usage: publisher := NewQueuePublisher(svc.QueueManager().Publish).
+func NewQueuePublisher(
+	publishFunc func(ctx context.Context, queueName string, payload any, headers map[string]string) error,
+) *QueuePublisher {
 	return &QueuePublisher{publishFunc: publishFunc}
 }
 

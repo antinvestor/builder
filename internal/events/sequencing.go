@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -33,7 +34,7 @@ type SequenceState struct {
 
 // InMemorySequenceManager is an in-memory implementation for testing.
 type InMemorySequenceManager struct {
-	mu       sync.RWMutex
+	mu        sync.RWMutex
 	sequences map[string]*SequenceState
 }
 
@@ -78,7 +79,11 @@ func (m *InMemorySequenceManager) CurrentSequence(ctx context.Context, execution
 }
 
 // ValidateSequence checks if a sequence number is valid.
-func (m *InMemorySequenceManager) ValidateSequence(ctx context.Context, executionID ExecutionID, seq uint64) (bool, error) {
+func (m *InMemorySequenceManager) ValidateSequence(
+	ctx context.Context,
+	executionID ExecutionID,
+	seq uint64,
+) (bool, error) {
 	current, err := m.CurrentSequence(ctx, executionID)
 	if err != nil {
 		return false, err
@@ -87,9 +92,13 @@ func (m *InMemorySequenceManager) ValidateSequence(ctx context.Context, executio
 }
 
 // ReserveSequenceRange reserves a range of sequence numbers.
-func (m *InMemorySequenceManager) ReserveSequenceRange(ctx context.Context, executionID ExecutionID, count int) (uint64, uint64, error) {
+func (m *InMemorySequenceManager) ReserveSequenceRange(
+	ctx context.Context,
+	executionID ExecutionID,
+	count int,
+) (uint64, uint64, error) {
 	if count <= 0 {
-		return 0, 0, fmt.Errorf("count must be positive")
+		return 0, 0, errors.New("count must be positive")
 	}
 
 	m.mu.Lock()
@@ -115,7 +124,7 @@ func (m *InMemorySequenceManager) ReserveSequenceRange(ctx context.Context, exec
 
 // HLCManager manages hybrid logical clock timestamps.
 type HLCManager struct {
-	mu          sync.Mutex
+	mu           sync.Mutex
 	lastPhysical int64
 	lastLogical  uint32
 }

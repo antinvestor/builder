@@ -31,7 +31,6 @@ type Patch struct {
 	LinesRemoved int `json:"lines_removed"`
 }
 
-
 // =============================================================================
 // Security Assessment Helper Types
 // =============================================================================
@@ -65,7 +64,7 @@ type SecretDetection struct {
 // Assessment Completion Flags
 // =============================================================================
 
-// SecurityAssessment additions - completion flags
+// SecurityAssessment additions - completion flags.
 func (s *SecurityAssessment) SetPassesReview(passes bool) {
 	s.RequiresSecurityReview = !passes
 }
@@ -113,7 +112,6 @@ type RollbackTarget struct {
 	// Reason is why this target was chosen.
 	Reason string `json:"reason"`
 }
-
 
 // =============================================================================
 // Test Execution Types
@@ -192,5 +190,3 @@ type ExecutionError struct {
 	Message string `json:"message"`
 	Details string `json:"details,omitempty"`
 }
-
-

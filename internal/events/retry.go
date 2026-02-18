@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 )
 
@@ -40,8 +41,8 @@ type RetryPolicy struct {
 func DefaultRetryPolicy() RetryPolicy {
 	return RetryPolicy{
 		MaxRetries:        5,
-		InitialDelayMS:    1000,    // 1 second
-		MaxDelayMS:        300000,  // 5 minutes
+		InitialDelayMS:    1000,   // 1 second
+		MaxDelayMS:        300000, // 5 minutes
 		BackoffMultiplier: 2.0,
 		Jitter:            0.1,
 		RetryableErrors: []string{
@@ -199,11 +200,11 @@ type DLQEntry struct {
 type DLQFailureClass string
 
 const (
-	DLQFailureTransient  DLQFailureClass = "transient"   // Network, timeout - may succeed later
-	DLQFailurePermanent  DLQFailureClass = "permanent"   // Bad data, invalid state
-	DLQFailureUnknown    DLQFailureClass = "unknown"     // Unexpected error
-	DLQFailureValidation DLQFailureClass = "validation"  // Schema/validation failure
-	DLQFailureResource   DLQFailureClass = "resource"    // Resource exhaustion
+	DLQFailureTransient  DLQFailureClass = "transient"  // Network, timeout - may succeed later
+	DLQFailurePermanent  DLQFailureClass = "permanent"  // Bad data, invalid state
+	DLQFailureUnknown    DLQFailureClass = "unknown"    // Unexpected error
+	DLQFailureValidation DLQFailureClass = "validation" // Schema/validation failure
+	DLQFailureResource   DLQFailureClass = "resource"   // Resource exhaustion
 )
 
 // DLQResolution tracks how a DLQ entry was resolved.
@@ -219,19 +220,19 @@ type DLQResolution struct {
 type DLQResolutionStatus string
 
 const (
-	DLQResolutionRequeued   DLQResolutionStatus = "requeued"   // Sent back for processing
-	DLQResolutionDiscarded  DLQResolutionStatus = "discarded"  // Intentionally dropped
-	DLQResolutionManualFix  DLQResolutionStatus = "manual_fix" // Fixed manually
-	DLQResolutionExpired    DLQResolutionStatus = "expired"    // Auto-expired
+	DLQResolutionRequeued  DLQResolutionStatus = "requeued"   // Sent back for processing
+	DLQResolutionDiscarded DLQResolutionStatus = "discarded"  // Intentionally dropped
+	DLQResolutionManualFix DLQResolutionStatus = "manual_fix" // Fixed manually
+	DLQResolutionExpired   DLQResolutionStatus = "expired"    // Auto-expired
 )
 
 // RetryHandler handles retry logic for event processing using Frame primitives.
 type RetryHandler struct {
-	policy        RetryPolicy
-	topicSelector *RetryTopicSelector
-	eventsEmitter *EventEmitter
+	policy         RetryPolicy
+	topicSelector  *RetryTopicSelector
+	eventsEmitter  *EventEmitter
 	queuePublisher *QueuePublisher
-	dlqQueueName  string
+	dlqQueueName   string
 }
 
 // RetryHandlerConfig configures the retry handler.
@@ -310,7 +311,7 @@ func (h *RetryHandler) createRetryEvent(original *Event, attempt int, errorCode,
 	if eventCopy.Metadata.Tags == nil {
 		eventCopy.Metadata.Tags = make(map[string]string)
 	}
-	eventCopy.Metadata.Tags["retry_attempt"] = fmt.Sprintf("%d", attempt)
+	eventCopy.Metadata.Tags["retry_attempt"] = strconv.Itoa(attempt)
 	eventCopy.Metadata.Tags["last_error_code"] = errorCode
 	eventCopy.Metadata.Tags["original_event_id"] = eventCopy.OriginalEventID.String()
 
@@ -321,7 +322,13 @@ func (h *RetryHandler) createRetryEvent(original *Event, attempt int, errorCode,
 	return &eventCopy, nil
 }
 
-func (h *RetryHandler) sendToDLQ(ctx context.Context, event *Event, err error, errorCode string, class DLQFailureClass) error {
+func (h *RetryHandler) sendToDLQ(
+	ctx context.Context,
+	event *Event,
+	err error,
+	errorCode string,
+	class DLQFailureClass,
+) error {
 	entry := &DLQEntry{
 		Event: event,
 		RetryMetadata: RetryMetadata{
@@ -384,15 +391,15 @@ type RetryScheduler interface {
 
 // CircuitBreaker implements circuit breaker pattern for retries.
 type CircuitBreaker struct {
-	name           string
-	maxFailures    int
-	resetTimeout   time.Duration
-	halfOpenMax    int
+	name         string
+	maxFailures  int
+	resetTimeout time.Duration
+	halfOpenMax  int
 
-	failures       int
-	lastFailure    time.Time
-	state          CircuitState
-	halfOpenCount  int
+	failures      int
+	lastFailure   time.Time
+	state         CircuitState
+	halfOpenCount int
 }
 
 // CircuitState represents circuit breaker state.

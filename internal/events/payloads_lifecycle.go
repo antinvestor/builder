@@ -126,17 +126,17 @@ type FeatureExecutionCompletedPayload struct {
 
 // ExecutionSummary summarizes the execution.
 type ExecutionSummary struct {
-	StepsCompleted   int   `json:"steps_completed"`
-	FilesCreated     int   `json:"files_created"`
-	FilesModified    int   `json:"files_modified"`
-	FilesDeleted     int   `json:"files_deleted"`
-	TotalLinesAdded  int   `json:"total_lines_added"`
+	StepsCompleted    int   `json:"steps_completed"`
+	FilesCreated      int   `json:"files_created"`
+	FilesModified     int   `json:"files_modified"`
+	FilesDeleted      int   `json:"files_deleted"`
+	TotalLinesAdded   int   `json:"total_lines_added"`
 	TotalLinesRemoved int   `json:"total_lines_removed"`
-	TestsAdded       int   `json:"tests_added"`
-	CommitsCreated   int   `json:"commits_created"`
-	TotalDurationMS  int64 `json:"total_duration_ms"`
-	LLMTokensUsed    int   `json:"llm_tokens_used"`
-	IterationCount   int   `json:"iteration_count"`
+	TestsAdded        int   `json:"tests_added"`
+	CommitsCreated    int   `json:"commits_created"`
+	TotalDurationMS   int64 `json:"total_duration_ms"`
+	LLMTokensUsed     int   `json:"llm_tokens_used"`
+	IterationCount    int   `json:"iteration_count"`
 }
 
 // ===== FEATURE DELIVERED =====

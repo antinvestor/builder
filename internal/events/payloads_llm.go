@@ -52,14 +52,14 @@ const (
 type LLMPurpose string
 
 const (
-	LLMPurposeNormalization   LLMPurpose = "normalization"    // Specification normalization
-	LLMPurposeImpactAnalysis  LLMPurpose = "impact_analysis"  // Impact analysis
-	LLMPurposePlanning        LLMPurpose = "planning"         // Plan generation
-	LLMPurposeCodeGeneration  LLMPurpose = "code_generation"  // Code generation
-	LLMPurposeTestGeneration  LLMPurpose = "test_generation"  // Test generation
-	LLMPurposeCodeReview      LLMPurpose = "code_review"      // Code review
-	LLMPurposeIteration       LLMPurpose = "iteration"        // Iteration/fix
-	LLMPurposeCommitMessage   LLMPurpose = "commit_message"   // Commit message generation
+	LLMPurposeNormalization  LLMPurpose = "normalization"   // Specification normalization
+	LLMPurposeImpactAnalysis LLMPurpose = "impact_analysis" // Impact analysis
+	LLMPurposePlanning       LLMPurpose = "planning"        // Plan generation
+	LLMPurposeCodeGeneration LLMPurpose = "code_generation" // Code generation
+	LLMPurposeTestGeneration LLMPurpose = "test_generation" // Test generation
+	LLMPurposeCodeReview     LLMPurpose = "code_review"     // Code review
+	LLMPurposeIteration      LLMPurpose = "iteration"       // Iteration/fix
+	LLMPurposeCommitMessage  LLMPurpose = "commit_message"  // Commit message generation
 )
 
 // LLMInvocationCompletedPayload is the payload for LLMInvocationCompleted.
@@ -132,10 +132,10 @@ type LLMUsage struct {
 type LLMStopReason string
 
 const (
-	LLMStopReasonEndTurn    LLMStopReason = "end_turn"    // Natural completion
-	LLMStopReasonMaxTokens  LLMStopReason = "max_tokens"  // Hit token limit
-	LLMStopReasonStopSequence LLMStopReason = "stop_sequence" // Hit stop sequence
-	LLMStopReasonToolUse    LLMStopReason = "tool_use"    // Tool use requested
+	LLMStopReasonEndTurn       LLMStopReason = "end_turn"       // Natural completion
+	LLMStopReasonMaxTokens     LLMStopReason = "max_tokens"     // Hit token limit
+	LLMStopReasonStopSequence  LLMStopReason = "stop_sequence"  // Hit stop sequence
+	LLMStopReasonToolUse       LLMStopReason = "tool_use"       // Tool use requested
 	LLMStopReasonContentFilter LLMStopReason = "content_filter" // Content filter triggered
 )
 

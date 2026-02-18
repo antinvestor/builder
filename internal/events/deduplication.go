@@ -21,7 +21,12 @@ type DeduplicationStore interface {
 	IsProcessed(ctx context.Context, eventID EventID) (bool, error)
 
 	// MarkProcessedWithResult marks an event as processed with its result.
-	MarkProcessedWithResult(ctx context.Context, eventID EventID, executionID ExecutionID, result *ProcessingResult) error
+	MarkProcessedWithResult(
+		ctx context.Context,
+		eventID EventID,
+		executionID ExecutionID,
+		result *ProcessingResult,
+	) error
 
 	// GetProcessingResult returns the result of a processed event.
 	GetProcessingResult(ctx context.Context, eventID EventID) (*ProcessingResult, error)
@@ -111,7 +116,11 @@ func (s *InMemoryDeduplicationStore) periodicCleanup() {
 }
 
 // MarkProcessed marks an event as processed.
-func (s *InMemoryDeduplicationStore) MarkProcessed(ctx context.Context, eventID EventID, executionID ExecutionID) error {
+func (s *InMemoryDeduplicationStore) MarkProcessed(
+	ctx context.Context,
+	eventID EventID,
+	executionID ExecutionID,
+) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -134,7 +143,12 @@ func (s *InMemoryDeduplicationStore) IsProcessed(ctx context.Context, eventID Ev
 }
 
 // MarkProcessedWithResult marks an event as processed with its result.
-func (s *InMemoryDeduplicationStore) MarkProcessedWithResult(ctx context.Context, eventID EventID, executionID ExecutionID, result *ProcessingResult) error {
+func (s *InMemoryDeduplicationStore) MarkProcessedWithResult(
+	ctx context.Context,
+	eventID EventID,
+	executionID ExecutionID,
+	result *ProcessingResult,
+) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -149,7 +163,10 @@ func (s *InMemoryDeduplicationStore) MarkProcessedWithResult(ctx context.Context
 }
 
 // GetProcessingResult returns the result of a processed event.
-func (s *InMemoryDeduplicationStore) GetProcessingResult(ctx context.Context, eventID EventID) (*ProcessingResult, error) {
+func (s *InMemoryDeduplicationStore) GetProcessingResult(
+	ctx context.Context,
+	eventID EventID,
+) (*ProcessingResult, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
