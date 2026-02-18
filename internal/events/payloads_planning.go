@@ -171,10 +171,10 @@ type PlanGenerationFailedPayload struct {
 
 // PlanValidatedPayload is the payload for PlanValidated.
 type PlanValidatedPayload struct {
-	PlanID           string             `json:"plan_id"`
-	ValidationResult ValidationResult   `json:"validation_result"`
-	Warnings         []ValidationIssue  `json:"warnings,omitempty"`
-	ValidatedAt      time.Time          `json:"validated_at"`
+	PlanID           string            `json:"plan_id"`
+	ValidationResult ValidationResult  `json:"validation_result"`
+	Warnings         []ValidationIssue `json:"warnings,omitempty"`
+	ValidatedAt      time.Time         `json:"validated_at"`
 }
 
 // ValidationResult indicates validation outcome.
@@ -188,12 +188,12 @@ const (
 
 // ValidationIssue describes a validation warning or error.
 type ValidationIssue struct {
-	Code        string           `json:"code"`
-	Message     string           `json:"message"`
-	Severity    IssueSeverity    `json:"severity"`
-	StepNumber  int              `json:"step_number,omitempty"`
-	FilePath    string           `json:"file_path,omitempty"`
-	Suggestion  string           `json:"suggestion,omitempty"`
+	Code       string        `json:"code"`
+	Message    string        `json:"message"`
+	Severity   IssueSeverity `json:"severity"`
+	StepNumber int           `json:"step_number,omitempty"`
+	FilePath   string        `json:"file_path,omitempty"`
+	Suggestion string        `json:"suggestion,omitempty"`
 }
 
 // IssueSeverity indicates issue severity.

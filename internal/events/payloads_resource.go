@@ -35,11 +35,11 @@ type AcquiredResource struct {
 type ResourceType string
 
 const (
-	ResourceTypeLock        ResourceType = "lock"        // Distributed lock
-	ResourceTypeCredential  ResourceType = "credential"  // Git credential
-	ResourceTypeWorkspace   ResourceType = "workspace"   // Workspace directory
-	ResourceTypeQuota       ResourceType = "quota"       // Resource quota allocation
-	ResourceTypeSandbox     ResourceType = "sandbox"     // Execution sandbox
+	ResourceTypeLock       ResourceType = "lock"       // Distributed lock
+	ResourceTypeCredential ResourceType = "credential" // Git credential
+	ResourceTypeWorkspace  ResourceType = "workspace"  // Workspace directory
+	ResourceTypeQuota      ResourceType = "quota"      // Resource quota allocation
+	ResourceTypeSandbox    ResourceType = "sandbox"    // Execution sandbox
 )
 
 // ResourcesReleasedPayload is the payload for ResourcesReleased.
@@ -101,10 +101,10 @@ type SandboxCreatedPayload struct {
 type SandboxType string
 
 const (
-	SandboxTypeContainer  SandboxType = "container"   // Docker/containerd
+	SandboxTypeContainer   SandboxType = "container"   // Docker/containerd
 	SandboxTypeFirecracker SandboxType = "firecracker" // Firecracker microVM
-	SandboxTypeGVisor     SandboxType = "gvisor"      // gVisor
-	SandboxTypeNone       SandboxType = "none"        // No sandbox (testing)
+	SandboxTypeGVisor      SandboxType = "gvisor"      // gVisor
+	SandboxTypeNone        SandboxType = "none"        // No sandbox (testing)
 )
 
 // SandboxConfig contains sandbox configuration.
@@ -157,9 +157,9 @@ type SandboxNetworkConfig struct {
 type NetworkMode string
 
 const (
-	NetworkModeNone     NetworkMode = "none"     // No network access
-	NetworkModeHost     NetworkMode = "host"     // Host network (not recommended)
-	NetworkModeBridge   NetworkMode = "bridge"   // Bridge network (default)
+	NetworkModeNone       NetworkMode = "none"       // No network access
+	NetworkModeHost       NetworkMode = "host"       // Host network (not recommended)
+	NetworkModeBridge     NetworkMode = "bridge"     // Bridge network (default)
 	NetworkModeRestricted NetworkMode = "restricted" // Limited outbound only
 )
 
@@ -188,7 +188,7 @@ const (
 	SandboxDestroyReasonCompleted SandboxDestroyReason = "completed"
 	SandboxDestroyReasonFailed    SandboxDestroyReason = "failed"
 	SandboxDestroyReasonTimeout   SandboxDestroyReason = "timeout"
-	SandboxDestroyReasonOOM       SandboxDestroyReason = "oom"     // Out of memory
+	SandboxDestroyReasonOOM       SandboxDestroyReason = "oom" // Out of memory
 	SandboxDestroyReasonAborted   SandboxDestroyReason = "aborted"
 	SandboxDestroyReasonCleanup   SandboxDestroyReason = "cleanup" // System cleanup
 )

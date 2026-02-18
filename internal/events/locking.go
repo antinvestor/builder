@@ -169,7 +169,12 @@ func (m *InMemoryLockManager) cleanupExpired() {
 }
 
 // Acquire attempts to acquire a lock with exponential backoff.
-func (m *InMemoryLockManager) Acquire(ctx context.Context, key string, owner string, ttl time.Duration) (DistributedLock, error) {
+func (m *InMemoryLockManager) Acquire(
+	ctx context.Context,
+	key string,
+	owner string,
+	ttl time.Duration,
+) (DistributedLock, error) {
 	deadline, ok := ctx.Deadline()
 	if !ok {
 		deadline = time.Now().Add(30 * time.Second)
@@ -221,7 +226,12 @@ func calculateLockBackoff(attempt int) time.Duration {
 }
 
 // TryAcquire attempts to acquire a lock without blocking.
-func (m *InMemoryLockManager) TryAcquire(ctx context.Context, key string, owner string, ttl time.Duration) (DistributedLock, bool, error) {
+func (m *InMemoryLockManager) TryAcquire(
+	_ context.Context,
+	key string,
+	owner string,
+	ttl time.Duration,
+) (DistributedLock, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -401,7 +411,13 @@ func (g *LockGuard) Extend(ctx context.Context, duration time.Duration) error {
 }
 
 // WithLock executes a function while holding a lock.
-func WithLock(ctx context.Context, manager LockManager, key, owner string, ttl time.Duration, fn func(ctx context.Context) error) error {
+func WithLock(
+	ctx context.Context,
+	manager LockManager,
+	key, owner string,
+	ttl time.Duration,
+	fn func(ctx context.Context) error,
+) error {
 	lock, err := manager.Acquire(ctx, key, owner, ttl)
 	if err != nil {
 		return fmt.Errorf("acquire lock: %w", err)

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -305,19 +306,19 @@ func (b *EventBuilder) Build() (*Event, error) {
 
 	// Validate required fields
 	if b.event.FeatureExecutionID.IsZero() {
-		return nil, fmt.Errorf("feature execution ID is required")
+		return nil, errors.New("feature execution ID is required")
 	}
 	if b.event.EventType == "" {
-		return nil, fmt.Errorf("event type is required")
+		return nil, errors.New("event type is required")
 	}
 	if b.event.SequenceNumber == 0 {
-		return nil, fmt.Errorf("sequence number is required")
+		return nil, errors.New("sequence number is required")
 	}
 	if b.event.CorrelationID.IsZero() {
-		return nil, fmt.Errorf("correlation ID is required")
+		return nil, errors.New("correlation ID is required")
 	}
 	if len(b.event.Payload) == 0 {
-		return nil, fmt.Errorf("payload is required")
+		return nil, errors.New("payload is required")
 	}
 
 	return &b.event, nil

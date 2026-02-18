@@ -47,7 +47,7 @@ type BuildStatus string
 const (
 	BuildStatusSuccess BuildStatus = "success"
 	BuildStatusFailed  BuildStatus = "failed"
-	BuildStatusError   BuildStatus = "error"   // Build infrastructure error
+	BuildStatusError   BuildStatus = "error" // Build infrastructure error
 	BuildStatusTimeout BuildStatus = "timeout"
 )
 
@@ -73,18 +73,18 @@ type BuildFailedPayload struct {
 
 // ReviewStartedPayload is the payload for ReviewStarted.
 type ReviewStartedPayload struct {
-	FilesToReview []string      `json:"files_to_review"`
-	ReviewTypes   []ReviewType  `json:"review_types"`
-	StartedAt     time.Time     `json:"started_at"`
+	FilesToReview []string     `json:"files_to_review"`
+	ReviewTypes   []ReviewType `json:"review_types"`
+	StartedAt     time.Time    `json:"started_at"`
 }
 
 // ReviewType categorizes review types.
 type ReviewType string
 
 const (
-	ReviewTypeCodeQuality ReviewType = "code_quality"
-	ReviewTypeSecurity    ReviewType = "security"
-	ReviewTypePerformance ReviewType = "performance"
+	ReviewTypeCodeQuality  ReviewType = "code_quality"
+	ReviewTypeSecurity     ReviewType = "security"
+	ReviewTypePerformance  ReviewType = "performance"
 	ReviewTypeBestPractice ReviewType = "best_practice"
 	ReviewTypeArchitecture ReviewType = "architecture"
 )
@@ -121,10 +121,10 @@ type ReviewAssessment struct {
 type ReviewRecommendation string
 
 const (
-	ReviewRecommendationApprove         ReviewRecommendation = "approve"
-	ReviewRecommendationApproveMinor    ReviewRecommendation = "approve_with_minor_changes"
-	ReviewRecommendationRequestChanges  ReviewRecommendation = "request_changes"
-	ReviewRecommendationReject          ReviewRecommendation = "reject"
+	ReviewRecommendationApprove        ReviewRecommendation = "approve"
+	ReviewRecommendationApproveMinor   ReviewRecommendation = "approve_with_minor_changes"
+	ReviewRecommendationRequestChanges ReviewRecommendation = "request_changes"
+	ReviewRecommendationReject         ReviewRecommendation = "reject"
 )
 
 // ReviewIssue describes an issue found during review.
@@ -164,15 +164,15 @@ type ReviewIssue struct {
 type ReviewIssueType string
 
 const (
-	ReviewIssueTypeBug            ReviewIssueType = "bug"
-	ReviewIssueTypeSecurity       ReviewIssueType = "security"
-	ReviewIssueTypePerformance    ReviewIssueType = "performance"
+	ReviewIssueTypeBug             ReviewIssueType = "bug"
+	ReviewIssueTypeSecurity        ReviewIssueType = "security"
+	ReviewIssueTypePerformance     ReviewIssueType = "performance"
 	ReviewIssueTypeMaintainability ReviewIssueType = "maintainability"
-	ReviewIssueTypeStyle          ReviewIssueType = "style"
-	ReviewIssueTypeDocumentation  ReviewIssueType = "documentation"
-	ReviewIssueTypeComplexity     ReviewIssueType = "complexity"
-	ReviewIssueTypeDeadCode       ReviewIssueType = "dead_code"
-	ReviewIssueTypeDuplication    ReviewIssueType = "duplication"
+	ReviewIssueTypeStyle           ReviewIssueType = "style"
+	ReviewIssueTypeDocumentation   ReviewIssueType = "documentation"
+	ReviewIssueTypeComplexity      ReviewIssueType = "complexity"
+	ReviewIssueTypeDeadCode        ReviewIssueType = "dead_code"
+	ReviewIssueTypeDuplication     ReviewIssueType = "duplication"
 )
 
 // ReviewIssueSeverity indicates issue severity.
@@ -202,9 +202,9 @@ type CodeQualityMetrics struct {
 	CognitiveComplexity  float64 `json:"cognitive_complexity"`
 
 	// Size metrics
-	LinesOfCode      int `json:"lines_of_code"`
-	LinesOfComments  int `json:"lines_of_comments"`
-	CommentRatio     float64 `json:"comment_ratio"`
+	LinesOfCode     int     `json:"lines_of_code"`
+	LinesOfComments int     `json:"lines_of_comments"`
+	CommentRatio    float64 `json:"comment_ratio"`
 
 	// Quality indicators
 	DuplicationPercent float64 `json:"duplication_percent"`
@@ -264,30 +264,30 @@ const (
 
 // Vulnerability describes a code vulnerability.
 type Vulnerability struct {
-	ID          string                  `json:"id"`
-	Type        VulnerabilityType       `json:"type"`
-	Severity    VulnerabilitySeverity   `json:"severity"`
-	CWE         string                  `json:"cwe,omitempty"`
-	CVSS        float64                 `json:"cvss,omitempty"`
-	FilePath    string                  `json:"file_path"`
-	LineStart   int                     `json:"line_start"`
-	LineEnd     int                     `json:"line_end"`
-	Title       string                  `json:"title"`
-	Description string                  `json:"description"`
-	Remediation string                  `json:"remediation"`
+	ID          string                `json:"id"`
+	Type        VulnerabilityType     `json:"type"`
+	Severity    VulnerabilitySeverity `json:"severity"`
+	CWE         string                `json:"cwe,omitempty"`
+	CVSS        float64               `json:"cvss,omitempty"`
+	FilePath    string                `json:"file_path"`
+	LineStart   int                   `json:"line_start"`
+	LineEnd     int                   `json:"line_end"`
+	Title       string                `json:"title"`
+	Description string                `json:"description"`
+	Remediation string                `json:"remediation"`
 }
 
 // VulnerabilityType categorizes vulnerabilities.
 type VulnerabilityType string
 
 const (
-	VulnerabilityTypeInjection     VulnerabilityType = "injection"
-	VulnerabilityTypeXSS           VulnerabilityType = "xss"
-	VulnerabilityTypePathTraversal VulnerabilityType = "path_traversal"
-	VulnerabilityTypeInsecureAuth  VulnerabilityType = "insecure_auth"
-	VulnerabilityTypeDataExposure  VulnerabilityType = "data_exposure"
-	VulnerabilityTypeCrypto        VulnerabilityType = "weak_crypto"
-	VulnerabilityTypeSSRF          VulnerabilityType = "ssrf"
+	VulnerabilityTypeInjection       VulnerabilityType = "injection"
+	VulnerabilityTypeXSS             VulnerabilityType = "xss"
+	VulnerabilityTypePathTraversal   VulnerabilityType = "path_traversal"
+	VulnerabilityTypeInsecureAuth    VulnerabilityType = "insecure_auth"
+	VulnerabilityTypeDataExposure    VulnerabilityType = "data_exposure"
+	VulnerabilityTypeCrypto          VulnerabilityType = "weak_crypto"
+	VulnerabilityTypeSSRF            VulnerabilityType = "ssrf"
 	VulnerabilityTypeDeserialization VulnerabilityType = "deserialization"
 )
 
@@ -578,16 +578,16 @@ type RiskFactor struct {
 type RiskCategory string
 
 const (
-	RiskCategorySecurity       RiskCategory = "security"
-	RiskCategoryArchitecture   RiskCategory = "architecture"
-	RiskCategoryBreakingChange RiskCategory = "breaking_change"
-	RiskCategoryPerformance    RiskCategory = "performance"
+	RiskCategorySecurity        RiskCategory = "security"
+	RiskCategoryArchitecture    RiskCategory = "architecture"
+	RiskCategoryBreakingChange  RiskCategory = "breaking_change"
+	RiskCategoryPerformance     RiskCategory = "performance"
 	RiskCategoryMaintainability RiskCategory = "maintainability"
-	RiskCategoryComplexity     RiskCategory = "complexity"
-	RiskCategoryTestCoverage   RiskCategory = "test_coverage"
-	RiskCategoryDependency     RiskCategory = "dependency"
-	RiskCategoryRegression     RiskCategory = "regression"
-	RiskCategoryDataIntegrity  RiskCategory = "data_integrity"
+	RiskCategoryComplexity      RiskCategory = "complexity"
+	RiskCategoryTestCoverage    RiskCategory = "test_coverage"
+	RiskCategoryDependency      RiskCategory = "dependency"
+	RiskCategoryRegression      RiskCategory = "regression"
+	RiskCategoryDataIntegrity   RiskCategory = "data_integrity"
 )
 
 // RiskMitigation describes a recommended mitigation.
@@ -726,20 +726,20 @@ type InsecurePattern struct {
 type InsecurePatternType string
 
 const (
-	InsecurePatternSQLInjection       InsecurePatternType = "sql_injection"
-	InsecurePatternXSS                InsecurePatternType = "xss"
-	InsecurePatternCommandInjection   InsecurePatternType = "command_injection"
-	InsecurePatternPathTraversal      InsecurePatternType = "path_traversal"
-	InsecurePatternSSRF               InsecurePatternType = "ssrf"
-	InsecurePatternOpenRedirect       InsecurePatternType = "open_redirect"
+	InsecurePatternSQLInjection        InsecurePatternType = "sql_injection"
+	InsecurePatternXSS                 InsecurePatternType = "xss"
+	InsecurePatternCommandInjection    InsecurePatternType = "command_injection"
+	InsecurePatternPathTraversal       InsecurePatternType = "path_traversal"
+	InsecurePatternSSRF                InsecurePatternType = "ssrf"
+	InsecurePatternOpenRedirect        InsecurePatternType = "open_redirect"
 	InsecurePatternInsecureDeserialize InsecurePatternType = "insecure_deserialize"
-	InsecurePatternHardcodedCreds     InsecurePatternType = "hardcoded_credentials"
-	InsecurePatternWeakCrypto         InsecurePatternType = "weak_crypto"
-	InsecurePatternInsecureRandom     InsecurePatternType = "insecure_random"
-	InsecurePatternMissingAuth        InsecurePatternType = "missing_auth"
-	InsecurePatternMissingValidation  InsecurePatternType = "missing_validation"
-	InsecurePatternLogSensitiveData   InsecurePatternType = "log_sensitive_data"
-	InsecurePatternInsecureTLS        InsecurePatternType = "insecure_tls"
+	InsecurePatternHardcodedCreds      InsecurePatternType = "hardcoded_credentials" //nolint:gosec // This is an enum value, not actual credentials
+	InsecurePatternWeakCrypto          InsecurePatternType = "weak_crypto"
+	InsecurePatternInsecureRandom      InsecurePatternType = "insecure_random"
+	InsecurePatternMissingAuth         InsecurePatternType = "missing_auth"
+	InsecurePatternMissingValidation   InsecurePatternType = "missing_validation"
+	InsecurePatternLogSensitiveData    InsecurePatternType = "log_sensitive_data"
+	InsecurePatternInsecureTLS         InsecurePatternType = "insecure_tls"
 )
 
 // AuthorizationIssue describes an authorization concern.
@@ -764,10 +764,10 @@ type AuthorizationIssue struct {
 type AuthIssueType string
 
 const (
-	AuthIssueMissingAuth       AuthIssueType = "missing_auth"
-	AuthIssueWeakAuth          AuthIssueType = "weak_auth"
+	AuthIssueMissingAuth         AuthIssueType = "missing_auth"
+	AuthIssueWeakAuth            AuthIssueType = "weak_auth"
 	AuthIssuePrivilegeEscalation AuthIssueType = "privilege_escalation"
-	AuthIssueIDOR              AuthIssueType = "idor"
+	AuthIssueIDOR                AuthIssueType = "idor"
 	AuthIssueBrokenAccessControl AuthIssueType = "broken_access_control"
 )
 
@@ -793,11 +793,11 @@ type DataHandlingIssue struct {
 type DataIssueType string
 
 const (
-	DataIssueUnencrypted     DataIssueType = "unencrypted"
-	DataIssueOverExposed     DataIssueType = "over_exposed"
-	DataIssueMissingMasking  DataIssueType = "missing_masking"
-	DataIssuePIILeakage      DataIssueType = "pii_leakage"
-	DataIssueInsecureStorage DataIssueType = "insecure_storage"
+	DataIssueUnencrypted      DataIssueType = "unencrypted"
+	DataIssueOverExposed      DataIssueType = "over_exposed"
+	DataIssueMissingMasking   DataIssueType = "missing_masking"
+	DataIssuePIILeakage       DataIssueType = "pii_leakage"
+	DataIssueInsecureStorage  DataIssueType = "insecure_storage"
 	DataIssueMissingRetention DataIssueType = "missing_retention"
 )
 
@@ -873,10 +873,10 @@ type ArchitectureAssessment struct {
 type ArchitectureStatus string
 
 const (
-	ArchitectureStatusCompliant    ArchitectureStatus = "compliant"
-	ArchitectureStatusWarnings     ArchitectureStatus = "warnings"
-	ArchitectureStatusViolations   ArchitectureStatus = "violations"
-	ArchitectureStatusBlocked      ArchitectureStatus = "blocked"
+	ArchitectureStatusCompliant  ArchitectureStatus = "compliant"
+	ArchitectureStatusWarnings   ArchitectureStatus = "warnings"
+	ArchitectureStatusViolations ArchitectureStatus = "violations"
+	ArchitectureStatusBlocked    ArchitectureStatus = "blocked"
 )
 
 // BreakingChange describes a breaking change.
@@ -978,10 +978,10 @@ type LayeringViolation struct {
 type LayeringViolationType string
 
 const (
-	LayeringViolationSkipLayer       LayeringViolationType = "skip_layer"
-	LayeringViolationReverseFlow     LayeringViolationType = "reverse_flow"
-	LayeringViolationBoundaryBreach  LayeringViolationType = "boundary_breach"
-	LayeringViolationDomainLeak      LayeringViolationType = "domain_leak"
+	LayeringViolationSkipLayer      LayeringViolationType = "skip_layer"
+	LayeringViolationReverseFlow    LayeringViolationType = "reverse_flow"
+	LayeringViolationBoundaryBreach LayeringViolationType = "boundary_breach"
+	LayeringViolationDomainLeak     LayeringViolationType = "domain_leak"
 )
 
 // InterfaceChange describes a change to an interface/contract.
@@ -1009,10 +1009,10 @@ type InterfaceChange struct {
 type InterfaceChangeType string
 
 const (
-	InterfaceChangeAddedMethod    InterfaceChangeType = "added_method"
-	InterfaceChangeRemovedMethod  InterfaceChangeType = "removed_method"
-	InterfaceChangeChangedMethod  InterfaceChangeType = "changed_method"
-	InterfaceChangeRenamedMethod  InterfaceChangeType = "renamed_method"
+	InterfaceChangeAddedMethod   InterfaceChangeType = "added_method"
+	InterfaceChangeRemovedMethod InterfaceChangeType = "removed_method"
+	InterfaceChangeChangedMethod InterfaceChangeType = "changed_method"
+	InterfaceChangeRenamedMethod InterfaceChangeType = "renamed_method"
 )
 
 // CircularDependency describes a circular dependency.
@@ -1070,10 +1070,10 @@ type APIContractViolation struct {
 type APIViolationType string
 
 const (
-	APIViolationChangedResponse   APIViolationType = "changed_response"
-	APIViolationChangedRequest    APIViolationType = "changed_request"
-	APIViolationRemovedEndpoint   APIViolationType = "removed_endpoint"
-	APIViolationChangedStatusCode APIViolationType = "changed_status_code"
+	APIViolationChangedResponse    APIViolationType = "changed_response"
+	APIViolationChangedRequest     APIViolationType = "changed_request"
+	APIViolationRemovedEndpoint    APIViolationType = "removed_endpoint"
+	APIViolationChangedStatusCode  APIViolationType = "changed_status_code"
 	APIViolationChangedErrorFormat APIViolationType = "changed_error_format"
 )
 
@@ -1249,13 +1249,13 @@ const (
 type KillSwitchReason string
 
 const (
-	KillSwitchReasonManual           KillSwitchReason = "manual"
-	KillSwitchReasonSecurityBreach   KillSwitchReason = "security_breach"
+	KillSwitchReasonManual            KillSwitchReason = "manual"
+	KillSwitchReasonSecurityBreach    KillSwitchReason = "security_breach"
 	KillSwitchReasonResourceExhausted KillSwitchReason = "resource_exhausted"
-	KillSwitchReasonAnomalyDetected  KillSwitchReason = "anomaly_detected"
+	KillSwitchReasonAnomalyDetected   KillSwitchReason = "anomaly_detected"
 	KillSwitchReasonRateLimitExceeded KillSwitchReason = "rate_limit_exceeded"
-	KillSwitchReasonSystemOverload   KillSwitchReason = "system_overload"
-	KillSwitchReasonPolicyViolation  KillSwitchReason = "policy_violation"
+	KillSwitchReasonSystemOverload    KillSwitchReason = "system_overload"
+	KillSwitchReasonPolicyViolation   KillSwitchReason = "policy_violation"
 )
 
 // KillSwitchDeactivatedPayload is emitted when kill switch is deactivated.
@@ -1344,17 +1344,27 @@ type ReviewThresholds struct {
 	RequireArchitectApproval bool `json:"require_architect_approval"`
 }
 
+// Default review threshold values.
+const (
+	defaultMaxRiskScore             = 50 // Conservative: 50/100 max risk
+	defaultMaxSecurityRiskScore     = 30 // Very conservative for security
+	defaultMaxArchitectureRiskScore = 40 // Conservative for architecture
+	defaultMinTestCoverage          = 70 // Require 70% coverage
+	defaultMaxHighIssues            = 2  // Allow up to 2 high issues
+	defaultMaxIterations            = 3  // Max 3 iterations
+)
+
 // DefaultReviewThresholds returns conservative default thresholds.
 func DefaultReviewThresholds() ReviewThresholds {
 	return ReviewThresholds{
-		MaxRiskScore:             50,  // Conservative: 50/100 max risk
-		MaxSecurityRiskScore:     30,  // Very conservative for security
-		MaxArchitectureRiskScore: 40,  // Conservative for architecture
-		MinTestCoverage:          70,  // Require 70% coverage
-		MaxCriticalIssues:        0,   // Zero tolerance for critical
-		MaxHighIssues:            2,   // Allow up to 2 high issues
-		MaxBreakingChanges:       0,   // Zero breaking changes
-		MaxIterations:            3,   // Max 3 iterations
+		MaxRiskScore:             defaultMaxRiskScore,
+		MaxSecurityRiskScore:     defaultMaxSecurityRiskScore,
+		MaxArchitectureRiskScore: defaultMaxArchitectureRiskScore,
+		MinTestCoverage:          defaultMinTestCoverage,
+		MaxCriticalIssues:        0, // Zero tolerance for critical
+		MaxHighIssues:            defaultMaxHighIssues,
+		MaxBreakingChanges:       0, // Zero breaking changes
+		MaxIterations:            defaultMaxIterations,
 		RequireSecurityApproval:  true,
 		RequireArchitectApproval: false,
 	}
