@@ -4,7 +4,6 @@ package events
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/rs/xid"
@@ -52,32 +51,35 @@ func MustParseExecutionID(s string) ExecutionID {
 	return id
 }
 
+// executionIDShortLength is the length of the short representation of an ExecutionID.
+const executionIDShortLength = 8
+
 // String returns the string representation.
-func (e ExecutionID) String() string {
+func (e *ExecutionID) String() string {
 	return e.id.String()
 }
 
 // Short returns the first 8 characters for human-readable contexts.
-func (e ExecutionID) Short() string {
+func (e *ExecutionID) Short() string {
 	s := e.id.String()
-	if len(s) >= 8 {
-		return s[:8]
+	if len(s) >= executionIDShortLength {
+		return s[:executionIDShortLength]
 	}
 	return s
 }
 
 // Time returns the timestamp embedded in the ID.
-func (e ExecutionID) Time() time.Time {
+func (e *ExecutionID) Time() time.Time {
 	return e.id.Time()
 }
 
 // IsZero returns true if this is the zero value.
-func (e ExecutionID) IsZero() bool {
+func (e *ExecutionID) IsZero() bool {
 	return e.id.IsNil()
 }
 
 // MarshalJSON implements json.Marshaler.
-func (e ExecutionID) MarshalJSON() ([]byte, error) {
+func (e *ExecutionID) MarshalJSON() ([]byte, error) {
 	return json.Marshal(e.id.String())
 }
 
@@ -96,12 +98,12 @@ func (e *ExecutionID) UnmarshalJSON(data []byte) error {
 }
 
 // Bytes returns the raw bytes of the ID.
-func (e ExecutionID) Bytes() []byte {
+func (e *ExecutionID) Bytes() []byte {
 	return e.id.Bytes()
 }
 
 // Compare returns -1, 0, or 1 comparing two IDs.
-func (e ExecutionID) Compare(other ExecutionID) int {
+func (e *ExecutionID) Compare(other ExecutionID) int {
 	return e.id.Compare(other.id)
 }
 
@@ -125,22 +127,22 @@ func ParseEventID(s string) (EventID, error) {
 }
 
 // String returns the string representation.
-func (e EventID) String() string {
+func (e *EventID) String() string {
 	return e.id.String()
 }
 
 // Time returns the timestamp embedded in the ID.
-func (e EventID) Time() time.Time {
+func (e *EventID) Time() time.Time {
 	return e.id.Time()
 }
 
 // IsZero returns true if this is the zero value.
-func (e EventID) IsZero() bool {
+func (e *EventID) IsZero() bool {
 	return e.id.IsNil()
 }
 
 // MarshalJSON implements json.Marshaler.
-func (e EventID) MarshalJSON() ([]byte, error) {
+func (e *EventID) MarshalJSON() ([]byte, error) {
 	return json.Marshal(e.id.String())
 }
 
@@ -180,10 +182,7 @@ func (s StepID) String() string {
 }
 
 // IDGenerator provides thread-safe ID generation with machine/process binding.
-type IDGenerator struct {
-	mu      sync.Mutex
-	counter uint32
-}
+type IDGenerator struct{}
 
 // NewIDGenerator creates a new ID generator.
 func NewIDGenerator() *IDGenerator {

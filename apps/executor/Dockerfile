@@ -4,6 +4,9 @@ ARG TARGETARCH=amd64
 # ---------- Builder ----------
 FROM golang:1.26 AS builder
 
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+
 WORKDIR /app
 
 ARG REPOSITORY
@@ -49,13 +52,11 @@ LABEL org.opencontainers.image.source=$REPOSITORY
 # Install Docker CLI for sandbox execution
 RUN apk add --no-cache docker-cli ca-certificates
 
-# Create non-root user with docker group access
+# Create non-root user with docker group access and workspace directory
 RUN addgroup -g 1000 feature && \
     adduser -u 1000 -G feature -s /bin/sh -D feature && \
-    addgroup feature docker 2>/dev/null || true
-
-# Create workspace directory
-RUN mkdir -p /var/lib/feature-service/workspaces && \
+    (addgroup feature docker 2>/dev/null || true) && \
+    mkdir -p /var/lib/feature-service/workspaces && \
     chown -R feature:feature /var/lib/feature-service
 
 WORKDIR /

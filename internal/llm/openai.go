@@ -148,7 +148,7 @@ func (c *OpenAIClient) Complete(
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	// Send request
-	httpResp, err := c.httpClient.Do(httpReq)
+	httpResp, err := c.httpClient.Do(httpReq) //nolint:gosec // URL is constructed from trusted config, not user input
 	if err != nil {
 		return nil, fmt.Errorf("send request: %w", err)
 	}

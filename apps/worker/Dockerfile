@@ -4,6 +4,9 @@ ARG TARGETARCH=amd64
 # ---------- Builder ----------
 FROM golang:1.26 AS builder
 
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+
 WORKDIR /app
 
 ARG REPOSITORY
@@ -28,6 +31,9 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
         -X github.com/pitabwire/frame/version.Date=${BUILDTIME}" \
     -o /app/binary ./apps/worker/cmd/main.go
 
+# Create workspace directory for COPY
+RUN mkdir -p /tmp/workspaces
+
 # ---------- Final ----------
 FROM cgr.dev/chainguard/static:latest
 
@@ -45,14 +51,12 @@ LABEL org.opencontainers.image.revision=$REVISION
 LABEL org.opencontainers.image.created=$BUILDTIME
 LABEL org.opencontainers.image.source=$REPOSITORY
 
-USER 65532:65532
-
 WORKDIR /
 
 COPY --from=builder /app/binary /worker
+COPY --from=builder --chown=65532:65532 /tmp/workspaces /var/lib/feature-service/workspaces
 
-# Create workspace directory
-RUN mkdir -p /var/lib/feature-service/workspaces || true
+USER 65532:65532
 
 EXPOSE 8080
 

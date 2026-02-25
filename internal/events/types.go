@@ -232,7 +232,7 @@ func (t EventType) IsLifecycleEvent() bool {
 
 // IsFailureEvent returns true if this event type indicates a failure.
 func (t EventType) IsFailureEvent() bool {
-	switch t {
+	switch t { //nolint:exhaustive // only failure events return true, all others return false
 	case FeatureExecutionFailed,
 		RepositoryCheckoutFailed,
 		RepositoryIndexingFailed,
@@ -255,7 +255,7 @@ func (t EventType) IsFailureEvent() bool {
 
 // IsTerminalEvent returns true if this event type ends execution.
 func (t EventType) IsTerminalEvent() bool {
-	switch t {
+	switch t { //nolint:exhaustive // only terminal events return true, all others return false
 	case FeatureDelivered, FeatureExecutionFailed, FeatureExecutionAborted:
 		return true
 	default:

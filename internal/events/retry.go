@@ -44,6 +44,18 @@ const (
 	defaultMaxDelayMS        = 300000 // 5 minutes
 	defaultBackoffMultiplier = 2.0
 	defaultJitter            = 0.1
+	jitterModulo             = 7
+	jitterDivisor            = 7.0
+	jitterHalf               = 2
+)
+
+// Retry topic attempt thresholds.
+const (
+	retryTopicThreshold1    = 2
+	retryTopicThreshold2    = 4
+	retryTopicThreshold3    = 6
+	halfOpenMaxRequests     = 3
+	dlqDefaultRetentionDays = 28
 )
 
 // DefaultRetryPolicy returns the default retry policy.
@@ -79,8 +91,8 @@ func (p RetryPolicy) CalculateDelay(attempt int) time.Duration {
 	if p.Jitter > 0 {
 		jitterAmount := delay * p.Jitter
 		// Simple pseudo-random based on attempt number
-		jitterOffset := float64(attempt%7) / 7.0 * jitterAmount
-		delay = delay - jitterAmount/2 + jitterOffset
+		jitterOffset := float64(attempt%jitterModulo) / jitterDivisor * jitterAmount
+		delay = delay - jitterAmount/float64(jitterHalf) + jitterOffset
 	}
 
 	return time.Duration(delay) * time.Millisecond
@@ -155,9 +167,9 @@ type RetryTopicSelector struct {
 func DefaultRetryTopicSelector() *RetryTopicSelector {
 	return &RetryTopicSelector{
 		RetryTopics: map[int]string{
-			2: "feature.events.retry.1", // Attempts 1-2: ~1 minute delay
-			4: "feature.events.retry.2", // Attempts 3-4: ~5 minute delay
-			6: "feature.events.retry.3", // Attempts 5-6: ~30 minute delay
+			retryTopicThreshold1: "feature.events.retry.1", // Attempts 1-2: ~1 minute delay
+			retryTopicThreshold2: "feature.events.retry.2", // Attempts 3-4: ~5 minute delay
+			retryTopicThreshold3: "feature.events.retry.3", // Attempts 5-6: ~30 minute delay
 		},
 		DLQTopic: "feature.events.dlq",
 	}
@@ -299,15 +311,15 @@ func (h *RetryHandler) HandleFailure(ctx context.Context, event *Event, err erro
 	return h.queuePublisher.Publish(ctx, retryQueueName, retryEvent)
 }
 
-func (h *RetryHandler) createRetryEvent(original *Event, attempt int, errorCode, errorMsg string) (*Event, error) {
+func (h *RetryHandler) createRetryEvent(original *Event, attempt int, errorCode, _ string) (*Event, error) {
 	// Copy the original event
 	var eventCopy Event
 	data, err := json.Marshal(original)
 	if err != nil {
 		return nil, err
 	}
-	if err := json.Unmarshal(data, &eventCopy); err != nil {
-		return nil, err
+	if unmarshalErr := json.Unmarshal(data, &eventCopy); unmarshalErr != nil {
+		return nil, unmarshalErr
 	}
 
 	// Update for retry
@@ -351,7 +363,7 @@ func (h *RetryHandler) sendToDLQ(
 		FailureReason:         err.Error(),
 		FailureClassification: class,
 		EnteredDLQAt:          time.Now(),
-		ExpiresAt:             time.Now().AddDate(0, 0, 28), // 28 day retention
+		ExpiresAt:             time.Now().AddDate(0, 0, dlqDefaultRetentionDays),
 		ManualReviewRequired:  class == DLQFailurePermanent || class == DLQFailureUnknown,
 	}
 
@@ -426,7 +438,7 @@ func NewCircuitBreaker(name string, maxFailures int, resetTimeout time.Duration)
 		name:         name,
 		maxFailures:  maxFailures,
 		resetTimeout: resetTimeout,
-		halfOpenMax:  3,
+		halfOpenMax:  halfOpenMaxRequests,
 		state:        CircuitClosed,
 	}
 }

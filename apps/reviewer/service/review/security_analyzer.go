@@ -22,6 +22,19 @@ const (
 	securityReviewScoreThreshold   = 50
 	secretContextLines             = 5
 	minCredentialLength            = 8
+
+	// Score deductions for vulnerabilities.
+	scoreDeductCriticalVuln    = 30
+	scoreDeductHighVuln        = 20
+	scoreDeductMediumVuln      = 10
+	scoreDeductLowVuln         = 5
+	scoreDeductXSSPattern      = 15
+	scoreDeductHighPattern     = 12
+	scoreDeductDefaultPattern  = 8
+	scoreDeductSecret          = 20
+	scoreDeductCriticalRegress = 35
+	scoreDeductHighRegress     = 25
+	scoreDeductDefaultRegress  = 15
 )
 
 // securityPattern defines a pattern to detect security issues.
@@ -368,7 +381,7 @@ func initSecurityPatterns() []securityPattern {
 
 // initSecretPatterns initializes secret detection patterns.
 //
-//nolint:funlen // pattern list definition requires many lines
+//nolint:funlen,gosec // pattern list definition requires many lines; G101 false positives on secret detection patterns
 func initSecretPatterns() []secretPattern {
 	return []secretPattern{
 		{
@@ -632,19 +645,19 @@ func (a *PatternSecurityAnalyzer) findSecrets(filePath, content string) []events
 
 // calculateSecurityScore calculates the overall security score.
 func (a *PatternSecurityAnalyzer) calculateSecurityScore(assessment *events.SecurityAssessment) int {
-	score := 100
+	score := securityScoreInitial
 
 	// Deduct for vulnerabilities
 	for _, vuln := range assessment.VulnerabilitiesFound {
 		switch vuln.Severity {
 		case events.VulnerabilitySeverityCritical:
-			score -= 30
+			score -= scoreDeductCriticalVuln
 		case events.VulnerabilitySeverityHigh:
-			score -= 20
+			score -= scoreDeductHighVuln
 		case events.VulnerabilitySeverityMedium:
-			score -= 10
+			score -= scoreDeductMediumVuln
 		case events.VulnerabilitySeverityLow:
-			score -= 5
+			score -= scoreDeductLowVuln
 		}
 	}
 
@@ -660,29 +673,29 @@ func (a *PatternSecurityAnalyzer) calculateSecurityScore(assessment *events.Secu
 			// Skip to avoid double-penalty.
 			continue
 		case events.InsecurePatternXSS:
-			score -= 15
+			score -= scoreDeductXSSPattern
 		case events.InsecurePatternHardcodedCreds,
 			events.InsecurePatternInsecureTLS:
-			score -= 12
+			score -= scoreDeductHighPattern
 		default:
-			score -= 8
+			score -= scoreDeductDefaultPattern
 		}
 	}
 
 	// Deduct for secrets
 	for range assessment.SecretsDetected {
-		score -= 20
+		score -= scoreDeductSecret
 	}
 
 	// Deduct for security regressions
 	for _, reg := range assessment.SecurityRegressions {
 		switch reg.Severity { //nolint:exhaustive // default handles low/medium severities
 		case events.VulnerabilitySeverityCritical:
-			score -= 35
+			score -= scoreDeductCriticalRegress
 		case events.VulnerabilitySeverityHigh:
-			score -= 25
+			score -= scoreDeductHighRegress
 		default:
-			score -= 15
+			score -= scoreDeductDefaultRegress
 		}
 	}
 

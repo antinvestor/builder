@@ -8,6 +8,17 @@ import (
 	"time"
 )
 
+// Queue retention duration constants.
+const (
+	retentionRetryLevel1   = 1 * time.Minute
+	retentionRetryLevel2   = 5 * time.Minute
+	retentionRetryLevel3   = 30 * time.Minute
+	retentionFeatureEvents = 7 * 24 * time.Hour
+	retentionDLQ           = 30 * 24 * time.Hour
+	retentionRequests      = 24 * time.Hour
+	retentionResults       = 7 * 24 * time.Hour
+)
+
 // JSONMap is a type alias for map[string]any used for JSON payloads.
 type JSONMap = map[string]any
 
@@ -42,47 +53,47 @@ func DefaultQueueConfigs() []QueueConfig {
 		{
 			Name:              "feature.events",
 			URI:               "mem://feature.events",
-			RetentionDuration: 7 * 24 * time.Hour,
+			RetentionDuration: retentionFeatureEvents,
 			Description:       "Main event queue for feature execution events",
 		},
 		// DLQ for failed events
 		{
 			Name:              "feature.events.dlq",
 			URI:               "mem://feature.events.dlq",
-			RetentionDuration: 28 * 24 * time.Hour,
+			RetentionDuration: retentionDLQ,
 			Description:       "Dead-letter queue for failed events",
 		},
 		// Retry queues with exponential backoff
 		{
 			Name:              "feature.events.retry.1",
 			URI:               "mem://feature.events.retry.1",
-			RetentionDuration: 1 * time.Minute,
+			RetentionDuration: retentionRetryLevel1,
 			Description:       "Retry queue level 1 (~1 minute delay)",
 		},
 		{
 			Name:              "feature.events.retry.2",
 			URI:               "mem://feature.events.retry.2",
-			RetentionDuration: 5 * time.Minute,
+			RetentionDuration: retentionRetryLevel2,
 			Description:       "Retry queue level 2 (~5 minute delay)",
 		},
 		{
 			Name:              "feature.events.retry.3",
 			URI:               "mem://feature.events.retry.3",
-			RetentionDuration: 30 * time.Minute,
+			RetentionDuration: retentionRetryLevel3,
 			Description:       "Retry queue level 3 (~30 minute delay)",
 		},
 		// Feature request queue (external input)
 		{
 			Name:              "feature.requests",
 			URI:               "mem://feature.requests",
-			RetentionDuration: 24 * time.Hour,
+			RetentionDuration: retentionRequests,
 			Description:       "Incoming feature requests",
 		},
 		// Feature result queue (external output)
 		{
 			Name:              "feature.results",
 			URI:               "mem://feature.results",
-			RetentionDuration: 7 * 24 * time.Hour,
+			RetentionDuration: retentionResults,
 			Description:       "Completed feature results",
 		},
 	}
@@ -308,6 +319,9 @@ func PartitionKey(executionID ExecutionID) string {
 
 // murmur2Hash implements murmur2 hash for partition assignment.
 // This is used for consistent partition routing when needed.
+// The magic numbers below are part of the murmur2 hash algorithm specification.
+//
+//nolint:mnd // murmur2 algorithm uses specific bit-manipulation constants
 func murmur2Hash(data []byte) uint32 {
 	const (
 		seed = 0x9747b28c
@@ -316,7 +330,7 @@ func murmur2Hash(data []byte) uint32 {
 	)
 
 	length := len(data)
-	h := seed ^ uint32(length)
+	h := seed ^ uint32(length) //nolint:gosec // length is bounded by input data slice size
 
 	for len(data) >= 4 {
 		k := uint32(data[0]) | uint32(data[1])<<8 | uint32(data[2])<<16 | uint32(data[3])<<24
@@ -351,5 +365,5 @@ func murmur2Hash(data []byte) uint32 {
 func TopicPartitionKey(executionID ExecutionID, numPartitions int) int32 {
 	key := executionID.String()
 	hash := murmur2Hash([]byte(key))
-	return int32(hash % uint32(numPartitions))
+	return int32(hash % uint32(numPartitions)) //nolint:gosec // numPartitions is always positive and small
 }
