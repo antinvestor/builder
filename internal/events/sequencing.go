@@ -46,7 +46,7 @@ func NewInMemorySequenceManager() *InMemorySequenceManager {
 }
 
 // NextSequence returns the next sequence number for an execution.
-func (m *InMemorySequenceManager) NextSequence(ctx context.Context, executionID ExecutionID) (uint64, error) {
+func (m *InMemorySequenceManager) NextSequence(_ context.Context, executionID ExecutionID) (uint64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -66,7 +66,7 @@ func (m *InMemorySequenceManager) NextSequence(ctx context.Context, executionID 
 }
 
 // CurrentSequence returns the current sequence number.
-func (m *InMemorySequenceManager) CurrentSequence(ctx context.Context, executionID ExecutionID) (uint64, error) {
+func (m *InMemorySequenceManager) CurrentSequence(_ context.Context, executionID ExecutionID) (uint64, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -164,13 +164,14 @@ func (h *HLCManager) Update(received HybridTimestamp) HybridTimestamp {
 	maxPhysical := max(physical, max(h.lastPhysical, received.PhysicalMS))
 
 	var logical uint32
-	if maxPhysical == h.lastPhysical && maxPhysical == received.PhysicalMS {
+	switch {
+	case h.lastPhysical == received.PhysicalMS && maxPhysical == h.lastPhysical:
 		logical = max(h.lastLogical, received.Logical) + 1
-	} else if maxPhysical == h.lastPhysical {
+	case maxPhysical == h.lastPhysical:
 		logical = h.lastLogical + 1
-	} else if maxPhysical == received.PhysicalMS {
+	case maxPhysical == received.PhysicalMS:
 		logical = received.Logical + 1
-	} else {
+	default:
 		logical = 0
 	}
 

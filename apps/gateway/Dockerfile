@@ -4,6 +4,9 @@ ARG TARGETARCH=amd64
 # ---------- Builder ----------
 FROM golang:1.26 AS builder
 
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+
 WORKDIR /app
 
 ARG REPOSITORY

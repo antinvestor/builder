@@ -70,13 +70,7 @@ func (s *SecurityAssessment) SetPassesReview(passes bool) {
 }
 
 // PassesSecurityReview indicates if security review passed.
-var _ = func() interface{} {
-	type extendedSecurityAssessment struct {
-		SecurityAssessment
-		PassesSecurityReview bool `json:"passes_security_review"`
-	}
-	return nil
-}()
+// The SecurityAssessment type uses RequiresSecurityReview (inverse) instead.
 
 // =============================================================================
 // Control Decision Next Actions

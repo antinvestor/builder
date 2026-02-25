@@ -2,9 +2,15 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
+)
+
+// Common deduplication errors.
+var (
+	ErrEventNotProcessed = errors.New("event not processed")
 )
 
 // Deduplication configuration constants.
@@ -172,13 +178,13 @@ func (s *InMemoryDeduplicationStore) GetProcessingResult(
 
 	entry, exists := s.entries[eventID.String()]
 	if !exists {
-		return nil, nil
+		return nil, fmt.Errorf("event %s: %w", eventID.String(), ErrEventNotProcessed)
 	}
 	return entry.result, nil
 }
 
 // Cleanup removes old deduplication entries.
-func (s *InMemoryDeduplicationStore) Cleanup(ctx context.Context, olderThan time.Duration) (int, error) {
+func (s *InMemoryDeduplicationStore) Cleanup(_ context.Context, olderThan time.Duration) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -219,9 +225,9 @@ func (h *IdempotentHandler) Handle(ctx context.Context, event *Event) error {
 
 	if processed {
 		// Already processed, return cached result if available
-		result, err := h.store.GetProcessingResult(ctx, event.EventID)
-		if err != nil {
-			return fmt.Errorf("get processing result: %w", err)
+		result, getErr := h.store.GetProcessingResult(ctx, event.EventID)
+		if getErr != nil {
+			return fmt.Errorf("get processing result: %w", getErr)
 		}
 
 		if result != nil && !result.Success {
@@ -251,10 +257,9 @@ func (h *IdempotentHandler) Handle(ctx context.Context, event *Event) error {
 		result.ErrorMessage = handleErr.Error()
 	}
 
-	if err := h.store.MarkProcessedWithResult(ctx, event.EventID, event.FeatureExecutionID, result); err != nil {
-		// Log but don't fail - the event was processed
-		// Next delivery will hit the dedup check
-	}
+	// Best effort - log but don't fail. The event was processed;
+	// next delivery will hit the dedup check.
+	_ = h.store.MarkProcessedWithResult(ctx, event.EventID, event.FeatureExecutionID, result)
 
 	return handleErr
 }
@@ -431,9 +436,8 @@ func (p *ExactlyOnceProcessor) Process(ctx context.Context, event *Event) error 
 		result.ErrorMessage = handleErr.Error()
 	}
 
-	if err := p.dedup.MarkProcessedWithResult(ctx, event.EventID, event.FeatureExecutionID, result); err != nil {
-		// Best effort - don't fail the processing
-	}
+	// Best effort - don't fail the processing.
+	_ = p.dedup.MarkProcessedWithResult(ctx, event.EventID, event.FeatureExecutionID, result)
 
 	// Step 4: Track sequence
 	p.sequence.RecordProcessed(event.FeatureExecutionID, event.SequenceNumber)
