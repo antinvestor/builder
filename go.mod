@@ -3,7 +3,7 @@ module github.com/antinvestor/builder
 go 1.26
 
 require (
-	github.com/boundaryml/baml v0.218.1
+	github.com/boundaryml/baml v0.219.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/pitabwire/frame v1.74.0
 	github.com/pitabwire/util v0.6.0
