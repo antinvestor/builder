@@ -1,12 +1,12 @@
 module github.com/antinvestor/builder
 
-go 1.25.6
+go 1.26
 
 require (
 	github.com/boundaryml/baml v0.218.1
 	github.com/docker/docker v28.5.2+incompatible
-	github.com/pitabwire/frame v1.73.0
-	github.com/pitabwire/util v0.5.0
+	github.com/pitabwire/frame v1.74.0
+	github.com/pitabwire/util v0.6.0
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/rs/xid v1.6.0
 	github.com/stretchr/testify v1.11.1
