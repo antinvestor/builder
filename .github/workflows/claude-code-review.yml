@@ -50,7 +50,7 @@ jobs:
       review_depth: ${{ steps.complexity.outputs.review_depth }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: .
           fetch-depth: 1
@@ -130,7 +130,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Get full history for better context
 
