@@ -5,7 +5,7 @@ go 1.26
 require (
 	github.com/boundaryml/baml v0.219.0
 	github.com/docker/docker v28.5.2+incompatible
-	github.com/pitabwire/frame v1.77.1
+	github.com/pitabwire/frame v1.78.0
 	github.com/pitabwire/util v0.6.1
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/rs/xid v1.6.0
@@ -56,7 +56,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/ory/keto/proto v0.13.0-alpha.0 // indirect
-	github.com/panjf2000/ants/v2 v2.11.5 // indirect
+	github.com/panjf2000/ants/v2 v2.11.6 // indirect
 	github.com/pitabwire/natspubsub v0.7.13 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -101,9 +101,9 @@ require (
 	gocloud.dev v0.45.0 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
-	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/oauth2 v0.36.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/api v0.269.0 // indirect
