@@ -30,7 +30,6 @@ func main() {
 	ctx, svc := frame.NewServiceWithContext(
 		ctx,
 		frame.WithConfig(&cfg),
-		frame.WithRegisterServerOauth2Client(),
 	)
 	defer svc.Stop(ctx)
 	log := svc.Log(ctx)
