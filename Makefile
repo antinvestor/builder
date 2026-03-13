@@ -77,6 +77,11 @@ run-%: ## Run specific service locally (e.g., make run-gateway)
 fmt: ## Format code
 	go fmt ./...
 
+format: ## Format and auto-fix lint issues
+	find . -name '*.go' -not -path './.git/*' -exec sed -i '/^import (/,/^)/{/^$$/d}' {} +
+	find . -name '*.go' -not -path './.git/*' -exec goimports -w {} +
+	golangci-lint run --fix -c .golangci.yaml
+
 lint: ## Run linter
 	@which golangci-lint > /dev/null || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	golangci-lint run ./...
