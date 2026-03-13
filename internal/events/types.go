@@ -1,12 +1,12 @@
 package events
 
 // EventType identifies the type of event.
-// Format: {domain}.{aggregate}.{action}[.{qualifier}]
+// Format: {domain}.{aggregate}.{action}[.{qualifier}].
 type EventType string
 
 // Event type constants organized by category.
 const (
-	// === LIFECYCLE EVENTS ===
+	// === LIFECYCLE EVENTS ===.
 
 	// FeatureExecutionInitialized marks the start of feature execution.
 	FeatureExecutionInitialized EventType = "feature.execution.initialized"
@@ -23,7 +23,7 @@ const (
 	// FeatureExecutionAborted marks user-initiated cancellation.
 	FeatureExecutionAborted EventType = "feature.execution.aborted"
 
-	// === REPOSITORY EVENTS ===
+	// === REPOSITORY EVENTS ===.
 
 	// RepositoryCheckoutStarted indicates clone/fetch beginning.
 	RepositoryCheckoutStarted EventType = "repository.checkout.started"
@@ -43,7 +43,7 @@ const (
 	// RepositoryIndexingFailed indicates indexing failure.
 	RepositoryIndexingFailed EventType = "repository.indexing.failed"
 
-	// === SPECIFICATION EVENTS ===
+	// === SPECIFICATION EVENTS ===.
 
 	// SpecificationNormalizationStarted indicates spec processing beginning.
 	SpecificationNormalizationStarted EventType = "specification.normalization.started"
@@ -54,7 +54,7 @@ const (
 	// SpecificationNormalizationFailed indicates spec processing failed.
 	SpecificationNormalizationFailed EventType = "specification.normalization.failed"
 
-	// === ANALYSIS EVENTS ===
+	// === ANALYSIS EVENTS ===.
 
 	// ImpactAnalysisStarted indicates impact analysis beginning.
 	ImpactAnalysisStarted EventType = "analysis.impact.started"
@@ -65,7 +65,7 @@ const (
 	// ImpactAnalysisFailed indicates impact analysis failed.
 	ImpactAnalysisFailed EventType = "analysis.impact.failed"
 
-	// === PLANNING EVENTS ===
+	// === PLANNING EVENTS ===.
 
 	// PlanGenerationStarted indicates plan generation beginning.
 	PlanGenerationStarted EventType = "planning.generation.started"
@@ -79,7 +79,7 @@ const (
 	// PlanValidated indicates plan validation passed.
 	PlanValidated EventType = "planning.validation.completed"
 
-	// === PATCH GENERATION EVENTS ===
+	// === PATCH GENERATION EVENTS ===.
 
 	// PatchGenerationStarted indicates patch generation phase beginning.
 	PatchGenerationStarted EventType = "patch.generation.started"
@@ -96,7 +96,7 @@ const (
 	// PatchGenerationCompleted indicates all patches generated.
 	PatchGenerationCompleted EventType = "patch.generation.completed"
 
-	// === TEST EVENTS ===
+	// === TEST EVENTS ===.
 
 	// TestGenerationStarted indicates test generation beginning.
 	TestGenerationStarted EventType = "test.generation.started"
@@ -116,7 +116,7 @@ const (
 	// TestExecutionFailed indicates test execution infrastructure failure.
 	TestExecutionFailed EventType = "test.execution.failed"
 
-	// === BUILD EVENTS ===
+	// === BUILD EVENTS ===.
 
 	// BuildStarted indicates build execution beginning.
 	BuildStarted EventType = "build.execution.started"
@@ -127,7 +127,7 @@ const (
 	// BuildFailed indicates build failure.
 	BuildFailed EventType = "build.execution.failed"
 
-	// === REVIEW EVENTS ===
+	// === REVIEW EVENTS ===.
 
 	// ReviewStarted indicates automated review beginning.
 	ReviewStarted EventType = "review.analysis.started"
@@ -144,7 +144,7 @@ const (
 	// SecurityScanCompleted indicates security scan done.
 	SecurityScanCompleted EventType = "review.security.completed"
 
-	// === ITERATION EVENTS ===
+	// === ITERATION EVENTS ===.
 
 	// IterationRequired indicates changes needed before completion.
 	IterationRequired EventType = "iteration.required"
@@ -155,7 +155,7 @@ const (
 	// IterationCompleted indicates iteration finished.
 	IterationCompleted EventType = "iteration.completed"
 
-	// === ROLLBACK EVENTS ===
+	// === ROLLBACK EVENTS ===.
 
 	// RollbackInitiated indicates rollback starting.
 	RollbackInitiated EventType = "rollback.initiated"
@@ -166,7 +166,7 @@ const (
 	// RollbackFailed indicates rollback failed.
 	RollbackFailed EventType = "rollback.failed"
 
-	// === GIT EVENTS ===
+	// === GIT EVENTS ===.
 
 	// GitBranchCreated indicates feature branch created.
 	GitBranchCreated EventType = "git.branch.created"
@@ -183,7 +183,7 @@ const (
 	// GitPushFailed indicates push failed.
 	GitPushFailed EventType = "git.push.failed"
 
-	// === RESOURCE EVENTS ===
+	// === RESOURCE EVENTS ===.
 
 	// ResourcesAcquired indicates locks/credentials obtained.
 	ResourcesAcquired EventType = "resources.acquired"
@@ -197,7 +197,7 @@ const (
 	// SandboxDestroyed indicates sandbox removed.
 	SandboxDestroyed EventType = "sandbox.destroyed"
 
-	// === LLM EVENTS ===
+	// === LLM EVENTS ===.
 
 	// LLMInvocationStarted indicates LLM call beginning.
 	LLMInvocationStarted EventType = "llm.invocation.started"
@@ -217,7 +217,7 @@ func (t EventType) String() string {
 // Domain returns the domain component of the event type.
 func (t EventType) Domain() string {
 	s := string(t)
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if s[i] == '.' {
 			return s[:i]
 		}
@@ -232,7 +232,7 @@ func (t EventType) IsLifecycleEvent() bool {
 
 // IsFailureEvent returns true if this event type indicates a failure.
 func (t EventType) IsFailureEvent() bool {
-	switch t {
+	switch t { //nolint:exhaustive // only failure events return true, all others return false
 	case FeatureExecutionFailed,
 		RepositoryCheckoutFailed,
 		RepositoryIndexingFailed,
@@ -255,7 +255,7 @@ func (t EventType) IsFailureEvent() bool {
 
 // IsTerminalEvent returns true if this event type ends execution.
 func (t EventType) IsTerminalEvent() bool {
-	switch t {
+	switch t { //nolint:exhaustive // only terminal events return true, all others return false
 	case FeatureDelivered, FeatureExecutionFailed, FeatureExecutionAborted:
 		return true
 	default:

@@ -71,12 +71,15 @@ func (m *RedisLockManager) TryAcquire(
 	// Use a loop instead of recursion to avoid stack overflow under high contention
 	for {
 		// Try to set with NX (only if not exists)
-		ok, err := m.client.SetNX(ctx, redisKey, owner, ttl).Result()
-		if err != nil {
-			return nil, false, fmt.Errorf("setnx: %w", err)
+		result, err := m.client.SetArgs(ctx, redisKey, owner, redis.SetArgs{
+			Mode: "NX",
+			TTL:  ttl,
+		}).Result()
+		if err != nil && !errors.Is(err, redis.Nil) {
+			return nil, false, fmt.Errorf("set nx: %w", err)
 		}
 
-		if ok {
+		if result == "OK" {
 			// Lock acquired
 			lock := &redisLock{
 				key:       key,

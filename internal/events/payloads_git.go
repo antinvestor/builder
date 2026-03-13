@@ -108,13 +108,13 @@ type GitPushFailedPayload struct {
 type GitPushErrorCode string
 
 const (
-	GitPushErrorNetwork     GitPushErrorCode = "network"
-	GitPushErrorAuth        GitPushErrorCode = "auth"
-	GitPushErrorRejected    GitPushErrorCode = "rejected"     // Push rejected (e.g., non-fast-forward)
-	GitPushErrorHook        GitPushErrorCode = "hook"         // Pre-push or server hook failed
-	GitPushErrorQuota       GitPushErrorCode = "quota"        // Storage quota exceeded
-	GitPushErrorTimeout     GitPushErrorCode = "timeout"
-	GitPushErrorProtected   GitPushErrorCode = "protected"    // Protected branch rules
+	GitPushErrorNetwork   GitPushErrorCode = "network"
+	GitPushErrorAuth      GitPushErrorCode = "auth"
+	GitPushErrorRejected  GitPushErrorCode = "rejected" // Push rejected (e.g., non-fast-forward)
+	GitPushErrorHook      GitPushErrorCode = "hook"     // Pre-push or server hook failed
+	GitPushErrorQuota     GitPushErrorCode = "quota"    // Storage quota exceeded
+	GitPushErrorTimeout   GitPushErrorCode = "timeout"
+	GitPushErrorProtected GitPushErrorCode = "protected" // Protected branch rules
 )
 
 // ===== GIT OPERATION HELPERS =====

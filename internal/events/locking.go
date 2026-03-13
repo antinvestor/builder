@@ -11,10 +11,11 @@ import (
 
 // Backoff configuration constants.
 const (
-	lockBaseBackoff    = 100 * time.Millisecond
-	lockMaxBackoff     = 30 * time.Second
-	lockJitterFraction = 0.3
-	lockMaxAttemptCap  = 10 // Maximum exponent for backoff calculation
+	lockBaseBackoff        = 100 * time.Millisecond
+	lockMaxBackoff         = 30 * time.Second
+	lockJitterFraction     = 0.3
+	lockMaxAttemptCap      = 10 // Maximum exponent for backoff calculation
+	lockDefaultAcquireWait = 30 * time.Second
 )
 
 // Common locking errors.
@@ -169,10 +170,15 @@ func (m *InMemoryLockManager) cleanupExpired() {
 }
 
 // Acquire attempts to acquire a lock with exponential backoff.
-func (m *InMemoryLockManager) Acquire(ctx context.Context, key string, owner string, ttl time.Duration) (DistributedLock, error) {
+func (m *InMemoryLockManager) Acquire(
+	ctx context.Context,
+	key string,
+	owner string,
+	ttl time.Duration,
+) (DistributedLock, error) {
 	deadline, ok := ctx.Deadline()
 	if !ok {
-		deadline = time.Now().Add(30 * time.Second)
+		deadline = time.Now().Add(lockDefaultAcquireWait)
 	}
 
 	attempt := 0
@@ -221,7 +227,12 @@ func calculateLockBackoff(attempt int) time.Duration {
 }
 
 // TryAcquire attempts to acquire a lock without blocking.
-func (m *InMemoryLockManager) TryAcquire(ctx context.Context, key string, owner string, ttl time.Duration) (DistributedLock, bool, error) {
+func (m *InMemoryLockManager) TryAcquire(
+	_ context.Context,
+	key string,
+	owner string,
+	ttl time.Duration,
+) (DistributedLock, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -254,7 +265,7 @@ func (m *InMemoryLockManager) TryAcquire(ctx context.Context, key string, owner 
 }
 
 // Release releases a lock.
-func (m *InMemoryLockManager) Release(ctx context.Context, key string, owner string) error {
+func (m *InMemoryLockManager) Release(_ context.Context, key string, owner string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -272,17 +283,17 @@ func (m *InMemoryLockManager) Release(ctx context.Context, key string, owner str
 }
 
 // GetLockInfo returns information about a lock.
-func (m *InMemoryLockManager) GetLockInfo(ctx context.Context, key string) (*LockInfo, error) {
+func (m *InMemoryLockManager) GetLockInfo(_ context.Context, key string) (*LockInfo, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	lock, ok := m.locks[key]
 	if !ok {
-		return nil, nil
+		return nil, ErrLockNotAcquired
 	}
 
 	if lock.expiresAt.Before(time.Now()) {
-		return nil, nil
+		return nil, ErrLockExpired
 	}
 
 	return &LockInfo{
@@ -294,7 +305,7 @@ func (m *InMemoryLockManager) GetLockInfo(ctx context.Context, key string) (*Loc
 }
 
 // IsLocked returns true if the key is locked.
-func (m *InMemoryLockManager) IsLocked(ctx context.Context, key string) (bool, error) {
+func (m *InMemoryLockManager) IsLocked(_ context.Context, key string) (bool, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -334,7 +345,7 @@ func (l *inMemoryLock) Unlock(ctx context.Context) error {
 }
 
 // Extend extends the lock TTL.
-func (l *inMemoryLock) Extend(ctx context.Context, duration time.Duration) error {
+func (l *inMemoryLock) Extend(_ context.Context, duration time.Duration) error {
 	l.manager.mu.Lock()
 	defer l.manager.mu.Unlock()
 
@@ -357,7 +368,7 @@ func (l *inMemoryLock) Extend(ctx context.Context, duration time.Duration) error
 }
 
 // IsHeld returns true if the lock is still held.
-func (l *inMemoryLock) IsHeld(ctx context.Context) (bool, error) {
+func (l *inMemoryLock) IsHeld(_ context.Context) (bool, error) {
 	l.manager.mu.RLock()
 	defer l.manager.mu.RUnlock()
 
@@ -401,12 +412,20 @@ func (g *LockGuard) Extend(ctx context.Context, duration time.Duration) error {
 }
 
 // WithLock executes a function while holding a lock.
-func WithLock(ctx context.Context, manager LockManager, key, owner string, ttl time.Duration, fn func(ctx context.Context) error) error {
+func WithLock(
+	ctx context.Context,
+	manager LockManager,
+	key, owner string,
+	ttl time.Duration,
+	fn func(ctx context.Context) error,
+) error {
 	lock, err := manager.Acquire(ctx, key, owner, ttl)
 	if err != nil {
 		return fmt.Errorf("acquire lock: %w", err)
 	}
-	defer lock.Unlock(ctx)
+	defer func() {
+		_ = lock.Unlock(ctx)
+	}()
 
 	return fn(ctx)
 }

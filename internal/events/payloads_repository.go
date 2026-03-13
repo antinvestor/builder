@@ -18,11 +18,11 @@ type RepositoryCheckoutStartedPayload struct {
 type CheckoutStrategy string
 
 const (
-	CheckoutStrategyUnspecified CheckoutStrategy = ""
-	CheckoutStrategyFullClone   CheckoutStrategy = "full_clone"    // git clone
+	CheckoutStrategyUnspecified  CheckoutStrategy = ""
+	CheckoutStrategyFullClone    CheckoutStrategy = "full_clone"    // git clone
 	CheckoutStrategyShallowClone CheckoutStrategy = "shallow_clone" // git clone --depth=1
-	CheckoutStrategyFetch       CheckoutStrategy = "fetch"         // git fetch (workspace exists)
-	CheckoutStrategyCached      CheckoutStrategy = "cached"        // Use existing workspace
+	CheckoutStrategyFetch        CheckoutStrategy = "fetch"         // git fetch (workspace exists)
+	CheckoutStrategyCached       CheckoutStrategy = "cached"        // Use existing workspace
 )
 
 // RepositoryCheckoutCompletedPayload is the payload for RepositoryCheckoutCompleted.
@@ -128,12 +128,12 @@ const (
 
 // ProjectStructure describes the project layout.
 type ProjectStructure struct {
-	SourceDirectories     []string `json:"source_directories"`
-	TestDirectories       []string `json:"test_directories"`
-	ConfigFiles           []string `json:"config_files"`
-	EntryPoints           []string `json:"entry_points"`
-	DocumentationFiles    []string `json:"documentation_files"`
-	DependencyFiles       []string `json:"dependency_files"`
+	SourceDirectories  []string `json:"source_directories"`
+	TestDirectories    []string `json:"test_directories"`
+	ConfigFiles        []string `json:"config_files"`
+	EntryPoints        []string `json:"entry_points"`
+	DocumentationFiles []string `json:"documentation_files"`
+	DependencyFiles    []string `json:"dependency_files"`
 }
 
 // IndexingMetrics contains indexing statistics.

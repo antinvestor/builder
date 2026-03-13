@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -148,14 +149,22 @@ type ProcessingHints struct {
 	AllowSkipOnFailure bool `json:"allow_skip_on_failure"`
 }
 
+// Default processing hints constants.
+const (
+	defaultHintsMaxRetries          = 5
+	defaultHintsRetryBaseDelayMS    = 1000
+	defaultHintsRetryMaxDelayMS     = 300000 // 5 minutes
+	defaultHintsProcessingTimeoutMS = 60000  // 1 minute
+)
+
 // DefaultProcessingHints returns sensible defaults.
 func DefaultProcessingHints() ProcessingHints {
 	return ProcessingHints{
 		Priority:            PriorityNormal,
-		MaxRetries:          5,
-		RetryBaseDelayMS:    1000,
-		RetryMaxDelayMS:     300000, // 5 minutes
-		ProcessingTimeoutMS: 60000,  // 1 minute
+		MaxRetries:          defaultHintsMaxRetries,
+		RetryBaseDelayMS:    defaultHintsRetryBaseDelayMS,
+		RetryMaxDelayMS:     defaultHintsRetryMaxDelayMS,
+		ProcessingTimeoutMS: defaultHintsProcessingTimeoutMS,
 		AllowSkipOnFailure:  false,
 	}
 }
@@ -172,8 +181,10 @@ const (
 )
 
 // String returns the string representation.
-func (p Priority) String() string {
-	switch p {
+func (p *Priority) String() string {
+	switch *p {
+	case PriorityUnspecified:
+		return "unspecified"
 	case PriorityLow:
 		return "low"
 	case PriorityNormal:
@@ -188,7 +199,7 @@ func (p Priority) String() string {
 }
 
 // MarshalJSON implements json.Marshaler.
-func (p Priority) MarshalJSON() ([]byte, error) {
+func (p *Priority) MarshalJSON() ([]byte, error) {
 	return json.Marshal(p.String())
 }
 
@@ -305,19 +316,19 @@ func (b *EventBuilder) Build() (*Event, error) {
 
 	// Validate required fields
 	if b.event.FeatureExecutionID.IsZero() {
-		return nil, fmt.Errorf("feature execution ID is required")
+		return nil, errors.New("feature execution ID is required")
 	}
 	if b.event.EventType == "" {
-		return nil, fmt.Errorf("event type is required")
+		return nil, errors.New("event type is required")
 	}
 	if b.event.SequenceNumber == 0 {
-		return nil, fmt.Errorf("sequence number is required")
+		return nil, errors.New("sequence number is required")
 	}
 	if b.event.CorrelationID.IsZero() {
-		return nil, fmt.Errorf("correlation ID is required")
+		return nil, errors.New("correlation ID is required")
 	}
 	if len(b.event.Payload) == 0 {
-		return nil, fmt.Errorf("payload is required")
+		return nil, errors.New("payload is required")
 	}
 
 	return &b.event, nil
@@ -365,7 +376,9 @@ func (e *Event) RetryAttempt() int {
 	}
 	if attempt, ok := e.Metadata.Tags["retry_attempt"]; ok {
 		var n int
-		fmt.Sscanf(attempt, "%d", &n)
+		if _, err := fmt.Sscanf(attempt, "%d", &n); err != nil {
+			return 0
+		}
 		return n
 	}
 	return 0

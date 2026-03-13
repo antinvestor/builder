@@ -138,7 +138,7 @@ type TestStatus string
 const (
 	TestStatusPassed  TestStatus = "passed"
 	TestStatusFailed  TestStatus = "failed"
-	TestStatusError   TestStatus = "error"   // Test infrastructure error
+	TestStatusError   TestStatus = "error" // Test infrastructure error
 	TestStatusTimeout TestStatus = "timeout"
 	TestStatusSkipped TestStatus = "skipped"
 )

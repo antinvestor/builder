@@ -629,12 +629,12 @@ func buildFeedbackFromReviewIssues(issues []events.ReviewIssue) string {
 	var feedback strings.Builder
 	feedback.WriteString("Please fix the following issues:\n\n")
 	for i, issue := range issues {
-		feedback.WriteString(fmt.Sprintf("%d. [%s] %s\n", i+1, issue.Severity, issue.Title))
+		fmt.Fprintf(&feedback, "%d. [%s] %s\n", i+1, issue.Severity, issue.Title)
 		if issue.Description != "" {
-			feedback.WriteString(fmt.Sprintf("   %s\n", issue.Description))
+			fmt.Fprintf(&feedback, "   %s\n", issue.Description)
 		}
 		if issue.Suggestion != "" {
-			feedback.WriteString(fmt.Sprintf("   Suggestion: %s\n", issue.Suggestion))
+			fmt.Fprintf(&feedback, "   Suggestion: %s\n", issue.Suggestion)
 		}
 		feedback.WriteString("\n")
 	}

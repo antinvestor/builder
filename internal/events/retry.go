@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 )
 
@@ -36,14 +37,35 @@ type RetryPolicy struct {
 	RetryableErrors []string `json:"retryable_errors,omitempty"`
 }
 
+// Default retry policy values.
+const (
+	defaultMaxRetries        = 5
+	defaultInitialDelayMS    = 1000   // 1 second
+	defaultMaxDelayMS        = 300000 // 5 minutes
+	defaultBackoffMultiplier = 2.0
+	defaultJitter            = 0.1
+	jitterModulo             = 7
+	jitterDivisor            = 7.0
+	jitterHalf               = 2
+)
+
+// Retry topic attempt thresholds.
+const (
+	retryTopicThreshold1    = 2
+	retryTopicThreshold2    = 4
+	retryTopicThreshold3    = 6
+	halfOpenMaxRequests     = 3
+	dlqDefaultRetentionDays = 28
+)
+
 // DefaultRetryPolicy returns the default retry policy.
 func DefaultRetryPolicy() RetryPolicy {
 	return RetryPolicy{
-		MaxRetries:        5,
-		InitialDelayMS:    1000,    // 1 second
-		MaxDelayMS:        300000,  // 5 minutes
-		BackoffMultiplier: 2.0,
-		Jitter:            0.1,
+		MaxRetries:        defaultMaxRetries,
+		InitialDelayMS:    defaultInitialDelayMS,
+		MaxDelayMS:        defaultMaxDelayMS,
+		BackoffMultiplier: defaultBackoffMultiplier,
+		Jitter:            defaultJitter,
 		RetryableErrors: []string{
 			"network",
 			"timeout",
@@ -69,8 +91,8 @@ func (p RetryPolicy) CalculateDelay(attempt int) time.Duration {
 	if p.Jitter > 0 {
 		jitterAmount := delay * p.Jitter
 		// Simple pseudo-random based on attempt number
-		jitterOffset := float64(attempt%7) / 7.0 * jitterAmount
-		delay = delay - jitterAmount/2 + jitterOffset
+		jitterOffset := float64(attempt%jitterModulo) / jitterDivisor * jitterAmount
+		delay = delay - jitterAmount/float64(jitterHalf) + jitterOffset
 	}
 
 	return time.Duration(delay) * time.Millisecond
@@ -145,9 +167,9 @@ type RetryTopicSelector struct {
 func DefaultRetryTopicSelector() *RetryTopicSelector {
 	return &RetryTopicSelector{
 		RetryTopics: map[int]string{
-			2: "feature.events.retry.1", // Attempts 1-2: ~1 minute delay
-			4: "feature.events.retry.2", // Attempts 3-4: ~5 minute delay
-			6: "feature.events.retry.3", // Attempts 5-6: ~30 minute delay
+			retryTopicThreshold1: "feature.events.retry.1", // Attempts 1-2: ~1 minute delay
+			retryTopicThreshold2: "feature.events.retry.2", // Attempts 3-4: ~5 minute delay
+			retryTopicThreshold3: "feature.events.retry.3", // Attempts 5-6: ~30 minute delay
 		},
 		DLQTopic: "feature.events.dlq",
 	}
@@ -199,11 +221,11 @@ type DLQEntry struct {
 type DLQFailureClass string
 
 const (
-	DLQFailureTransient  DLQFailureClass = "transient"   // Network, timeout - may succeed later
-	DLQFailurePermanent  DLQFailureClass = "permanent"   // Bad data, invalid state
-	DLQFailureUnknown    DLQFailureClass = "unknown"     // Unexpected error
-	DLQFailureValidation DLQFailureClass = "validation"  // Schema/validation failure
-	DLQFailureResource   DLQFailureClass = "resource"    // Resource exhaustion
+	DLQFailureTransient  DLQFailureClass = "transient"  // Network, timeout - may succeed later
+	DLQFailurePermanent  DLQFailureClass = "permanent"  // Bad data, invalid state
+	DLQFailureUnknown    DLQFailureClass = "unknown"    // Unexpected error
+	DLQFailureValidation DLQFailureClass = "validation" // Schema/validation failure
+	DLQFailureResource   DLQFailureClass = "resource"   // Resource exhaustion
 )
 
 // DLQResolution tracks how a DLQ entry was resolved.
@@ -219,19 +241,19 @@ type DLQResolution struct {
 type DLQResolutionStatus string
 
 const (
-	DLQResolutionRequeued   DLQResolutionStatus = "requeued"   // Sent back for processing
-	DLQResolutionDiscarded  DLQResolutionStatus = "discarded"  // Intentionally dropped
-	DLQResolutionManualFix  DLQResolutionStatus = "manual_fix" // Fixed manually
-	DLQResolutionExpired    DLQResolutionStatus = "expired"    // Auto-expired
+	DLQResolutionRequeued  DLQResolutionStatus = "requeued"   // Sent back for processing
+	DLQResolutionDiscarded DLQResolutionStatus = "discarded"  // Intentionally dropped
+	DLQResolutionManualFix DLQResolutionStatus = "manual_fix" // Fixed manually
+	DLQResolutionExpired   DLQResolutionStatus = "expired"    // Auto-expired
 )
 
 // RetryHandler handles retry logic for event processing using Frame primitives.
 type RetryHandler struct {
-	policy        RetryPolicy
-	topicSelector *RetryTopicSelector
-	eventsEmitter *EventEmitter
+	policy         RetryPolicy
+	topicSelector  *RetryTopicSelector
+	eventsEmitter  *EventEmitter
 	queuePublisher *QueuePublisher
-	dlqQueueName  string
+	dlqQueueName   string
 }
 
 // RetryHandlerConfig configures the retry handler.
@@ -289,15 +311,15 @@ func (h *RetryHandler) HandleFailure(ctx context.Context, event *Event, err erro
 	return h.queuePublisher.Publish(ctx, retryQueueName, retryEvent)
 }
 
-func (h *RetryHandler) createRetryEvent(original *Event, attempt int, errorCode, errorMsg string) (*Event, error) {
+func (h *RetryHandler) createRetryEvent(original *Event, attempt int, errorCode, _ string) (*Event, error) {
 	// Copy the original event
 	var eventCopy Event
 	data, err := json.Marshal(original)
 	if err != nil {
 		return nil, err
 	}
-	if err := json.Unmarshal(data, &eventCopy); err != nil {
-		return nil, err
+	if unmarshalErr := json.Unmarshal(data, &eventCopy); unmarshalErr != nil {
+		return nil, unmarshalErr
 	}
 
 	// Update for retry
@@ -310,7 +332,7 @@ func (h *RetryHandler) createRetryEvent(original *Event, attempt int, errorCode,
 	if eventCopy.Metadata.Tags == nil {
 		eventCopy.Metadata.Tags = make(map[string]string)
 	}
-	eventCopy.Metadata.Tags["retry_attempt"] = fmt.Sprintf("%d", attempt)
+	eventCopy.Metadata.Tags["retry_attempt"] = strconv.Itoa(attempt)
 	eventCopy.Metadata.Tags["last_error_code"] = errorCode
 	eventCopy.Metadata.Tags["original_event_id"] = eventCopy.OriginalEventID.String()
 
@@ -321,7 +343,13 @@ func (h *RetryHandler) createRetryEvent(original *Event, attempt int, errorCode,
 	return &eventCopy, nil
 }
 
-func (h *RetryHandler) sendToDLQ(ctx context.Context, event *Event, err error, errorCode string, class DLQFailureClass) error {
+func (h *RetryHandler) sendToDLQ(
+	ctx context.Context,
+	event *Event,
+	err error,
+	errorCode string,
+	class DLQFailureClass,
+) error {
 	entry := &DLQEntry{
 		Event: event,
 		RetryMetadata: RetryMetadata{
@@ -335,7 +363,7 @@ func (h *RetryHandler) sendToDLQ(ctx context.Context, event *Event, err error, e
 		FailureReason:         err.Error(),
 		FailureClassification: class,
 		EnteredDLQAt:          time.Now(),
-		ExpiresAt:             time.Now().AddDate(0, 0, 28), // 28 day retention
+		ExpiresAt:             time.Now().AddDate(0, 0, dlqDefaultRetentionDays),
 		ManualReviewRequired:  class == DLQFailurePermanent || class == DLQFailureUnknown,
 	}
 
@@ -384,15 +412,15 @@ type RetryScheduler interface {
 
 // CircuitBreaker implements circuit breaker pattern for retries.
 type CircuitBreaker struct {
-	name           string
-	maxFailures    int
-	resetTimeout   time.Duration
-	halfOpenMax    int
+	name         string
+	maxFailures  int
+	resetTimeout time.Duration
+	halfOpenMax  int
 
-	failures       int
-	lastFailure    time.Time
-	state          CircuitState
-	halfOpenCount  int
+	failures      int
+	lastFailure   time.Time
+	state         CircuitState
+	halfOpenCount int
 }
 
 // CircuitState represents circuit breaker state.
@@ -410,7 +438,7 @@ func NewCircuitBreaker(name string, maxFailures int, resetTimeout time.Duration)
 		name:         name,
 		maxFailures:  maxFailures,
 		resetTimeout: resetTimeout,
-		halfOpenMax:  3,
+		halfOpenMax:  halfOpenMaxRequests,
 		state:        CircuitClosed,
 	}
 }

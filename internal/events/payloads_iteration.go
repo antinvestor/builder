@@ -29,11 +29,11 @@ type IterationRequiredPayload struct {
 type IterationReason string
 
 const (
-	IterationReasonBuildFailed  IterationReason = "build_failed"
-	IterationReasonTestsFailed  IterationReason = "tests_failed"
-	IterationReasonLintFailed   IterationReason = "lint_failed"
-	IterationReasonSecurityIssues IterationReason = "security_issues"
-	IterationReasonReviewRejected IterationReason = "review_rejected"
+	IterationReasonBuildFailed      IterationReason = "build_failed"
+	IterationReasonTestsFailed      IterationReason = "tests_failed"
+	IterationReasonLintFailed       IterationReason = "lint_failed"
+	IterationReasonSecurityIssues   IterationReason = "security_issues"
+	IterationReasonReviewRejected   IterationReason = "review_rejected"
 	IterationReasonValidationFailed IterationReason = "validation_failed"
 )
 
@@ -117,10 +117,10 @@ type IterationCompletedPayload struct {
 type IterationResult string
 
 const (
-	IterationResultSuccess   IterationResult = "success"   // All issues resolved
-	IterationResultPartial   IterationResult = "partial"   // Some issues resolved
-	IterationResultFailed    IterationResult = "failed"    // No progress made
-	IterationResultAborted   IterationResult = "aborted"   // Iteration was aborted
+	IterationResultSuccess IterationResult = "success" // All issues resolved
+	IterationResultPartial IterationResult = "partial" // Some issues resolved
+	IterationResultFailed  IterationResult = "failed"  // No progress made
+	IterationResultAborted IterationResult = "aborted" // Iteration was aborted
 )
 
 // ===== ROLLBACK EVENTS =====

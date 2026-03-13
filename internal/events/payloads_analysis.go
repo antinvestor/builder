@@ -12,10 +12,10 @@ type SpecificationNormalizationStartedPayload struct {
 
 // SpecificationNormalizedPayload is the payload for SpecificationNormalized.
 type SpecificationNormalizedPayload struct {
-	OriginalDescription string                `json:"original_description"`
+	OriginalDescription string                  `json:"original_description"`
 	Normalized          NormalizedSpecification `json:"normalized"`
-	LLMInfo             LLMProcessingInfo     `json:"llm_info"`
-	CompletedAt         time.Time             `json:"completed_at"`
+	LLMInfo             LLMProcessingInfo       `json:"llm_info"`
+	CompletedAt         time.Time               `json:"completed_at"`
 }
 
 // NormalizedSpecification is a structured, clarified specification.
@@ -104,11 +104,11 @@ const (
 
 // ComplexityAssessment estimates implementation complexity.
 type ComplexityAssessment struct {
-	Level                   ComplexityLevel `json:"level"`
-	EstimatedSteps          int             `json:"estimated_steps"`
-	EstimatedFiles          int             `json:"estimated_files"`
+	Level                    ComplexityLevel `json:"level"`
+	EstimatedSteps           int             `json:"estimated_steps"`
+	EstimatedFiles           int             `json:"estimated_files"`
 	EstimatedDurationMinutes int             `json:"estimated_duration_minutes"`
-	Rationale               string          `json:"rationale"`
+	Rationale                string          `json:"rationale"`
 }
 
 // ComplexityLevel indicates complexity.
