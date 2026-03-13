@@ -148,7 +148,7 @@ func (c *AnthropicClient) Complete(
 	httpReq.Header.Set("Anthropic-Version", anthropicAPIVersion)
 
 	// Send request
-	httpResp, err := c.httpClient.Do(httpReq) //nolint:gosec // G107: URL from trusted config
+	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("send request: %w", err)
 	}
