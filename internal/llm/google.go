@@ -152,7 +152,7 @@ func (c *GoogleClient) Complete(
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	// Send request
-	httpResp, err := c.httpClient.Do(httpReq) //nolint:gosec // URL is constructed from trusted config, not user input
+	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("send request: %w", err)
 	}
