@@ -600,3 +600,172 @@ type GiantClass struct {}
 	}
 	return builder.String()
 }
+
+func TestIsExportedFile(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{
+			name:    "file with exported function",
+			content: "package foo\nfunc ProcessOrder() {}\n",
+			want:    true,
+		},
+		{
+			name:    "file with exported type",
+			content: "package foo\ntype OrderService struct{}\n",
+			want:    true,
+		},
+		{
+			name:    "file with no exports",
+			content: "package foo\nfunc processOrder() {}\ntype internal struct{}\n",
+			want:    false,
+		},
+		{
+			name:    "file with exported var",
+			content: "package foo\nvar DefaultTimeout = 30\n",
+			want:    true,
+		},
+		{
+			name:    "file with exported const",
+			content: "package foo\nconst MaxRetries = 3\n",
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isExportedFile("test.go", tt.content)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestHasGlobalState(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		language string
+		want     bool
+	}{
+		{
+			name:     "go with global var",
+			content:  "var counter = 0\n",
+			language: langGo,
+			want:     true,
+		},
+		{
+			name:     "go without global var",
+			content:  "const maxRetries = 3\nfunc process() {}\n",
+			language: langGo,
+			want:     false,
+		},
+		{
+			name:     "javascript with let",
+			content:  "let count = 0\n",
+			language: langJavaScript,
+			want:     true,
+		},
+		{
+			name:     "javascript with const only",
+			content:  "const MAX = 10\n",
+			language: langJavaScript,
+			want:     false,
+		},
+		{
+			name:     "typescript with var",
+			content:  "var state = {}\n",
+			language: langTypeScript,
+			want:     true,
+		},
+		{
+			name:     "python module",
+			content:  "counter = 0\n",
+			language: langPython,
+			want:     false,
+		},
+		{
+			name:     "unknown language",
+			content:  "var x = 1\n",
+			language: "rust",
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hasGlobalState(tt.content, tt.language)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCountMethods(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		language string
+		want     int
+	}{
+		{
+			name:     "go methods",
+			content:  "func (s *Service) Method1() {}\nfunc (s *Service) Method2() {}\nfunc Helper() {}\n",
+			language: langGo,
+			want:     3,
+		},
+		{
+			name:     "python functions",
+			content:  "def method1(self):\n    pass\ndef method2():\n    pass\n",
+			language: langPython,
+			want:     2,
+		},
+		{
+			name:     "javascript functions",
+			content:  "function doWork() {}\nasync doAsync() {\n}\n",
+			language: langJavaScript,
+			want:     2,
+		},
+		{
+			name:     "unknown language returns zero",
+			content:  "fn main() {}",
+			language: "rust",
+			want:     0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := countMethods(tt.content, tt.language)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestExtractFunctionSignatures(t *testing.T) {
+	goContent := `package service
+func ProcessOrder(order Order) error { return nil }
+func (s *Service) GetOrder(id string) Order { return Order{} }
+func helper() {}
+`
+	sigs := extractFunctionSignatures(goContent, "service.go")
+	require.Contains(t, sigs, "ProcessOrder")
+	require.Contains(t, sigs, "GetOrder")
+	require.Contains(t, sigs, "helper")
+
+	// Non-Go file should return empty map for Go patterns
+	jsSigs := extractFunctionSignatures("function doWork() {}", "app.js")
+	require.Contains(t, jsSigs, "doWork")
+
+	// TypeScript file
+	tsSigs := extractFunctionSignatures("export function calculate() {}", "util.ts")
+	require.Contains(t, tsSigs, "calculate")
+}
+
+func TestIsExportedSymbol(t *testing.T) {
+	require.True(t, isExportedSymbol("ProcessOrder", "service.go"))
+	require.False(t, isExportedSymbol("processOrder", "service.go"))
+	require.False(t, isExportedSymbol("", "service.go"))
+	// Non-Go files always return true
+	require.True(t, isExportedSymbol("doWork", "app.js"))
+}
