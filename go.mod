@@ -2,10 +2,12 @@ module github.com/antinvestor/builder
 
 go 1.26
 
+toolchain go1.26.1
+
 require (
 	github.com/boundaryml/baml v0.220.0
 	github.com/docker/docker v28.5.2+incompatible
-	github.com/pitabwire/frame v1.80.0
+	github.com/pitabwire/frame v1.80.1
 	github.com/pitabwire/util v0.6.1
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/rs/xid v1.6.0
@@ -109,7 +111,7 @@ require (
 	google.golang.org/api v0.271.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260226221140-a57be14db171 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260226221140-a57be14db171 // indirect
-	google.golang.org/grpc v1.79.2 // indirect
+	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.0 // indirect
