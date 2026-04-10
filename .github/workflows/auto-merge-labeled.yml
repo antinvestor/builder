@@ -31,7 +31,7 @@ jobs:
     if: github.event_name == 'check_suite' || github.event_name == 'workflow_run'
     steps:
       - name: Find and merge labeled PRs
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: prs } = await github.rest.pulls.list({
