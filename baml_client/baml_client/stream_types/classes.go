@@ -16,10 +16,9 @@ package stream_types
 import (
 	"fmt"
 
+	"github.com/antinvestor/builder/baml_client/baml_client/types"
 	baml "github.com/boundaryml/baml/engine/language_client_go/pkg"
 	"github.com/boundaryml/baml/engine/language_client_go/pkg/cffi"
-
-	"github.com/antinvestor/builder/baml_client/baml_client/types"
 )
 
 type AcceptanceCriterion struct {

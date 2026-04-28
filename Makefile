@@ -290,19 +290,19 @@ structure: ## Show project structure
 	@echo ""
 
 env-example: ## Generate .env.example
-	@cat > .env.example << 'EOF'
-# Service Feature - Environment Configuration
-
-# LLM API Keys
-ANTHROPIC_API_KEY=your-anthropic-key
-OPENAI_API_KEY=your-openai-key
-
-# Git Authentication
-# GIT_SSH_KEY_PATH=/path/to/ssh/key
-# GIT_HTTPS_USERNAME=username
-# GIT_HTTPS_PASSWORD=token
-
-# Log level
-LOG_LEVEL=info
-EOF
+	@printf '%s\n' \
+	  '# Service Feature - Environment Configuration' \
+	  '' \
+	  '# LLM API Keys' \
+	  'ANTHROPIC_API_KEY=your-anthropic-key' \
+	  'OPENAI_API_KEY=your-openai-key' \
+	  '' \
+	  '# Git Authentication' \
+	  '# GIT_SSH_KEY_PATH=/path/to/ssh/key' \
+	  '# GIT_HTTPS_USERNAME=username' \
+	  '# GIT_HTTPS_PASSWORD=token' \
+	  '' \
+	  '# Log level' \
+	  'LOG_LEVEL=info' \
+	  > .env.example
 	@echo "$(GREEN)Generated .env.example$(NC)"

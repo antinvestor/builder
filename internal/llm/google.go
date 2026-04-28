@@ -152,7 +152,7 @@ func (c *GoogleClient) Complete(
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	// Send request
-	httpResp, err := c.httpClient.Do(httpReq)
+	httpResp, err := c.httpClient.Do(httpReq) //nolint:gosec // G704 false positive
 	if err != nil {
 		return nil, fmt.Errorf("send request: %w", err)
 	}
