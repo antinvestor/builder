@@ -9,7 +9,7 @@ require (
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/pitabwire/frame v1.94.6
 	github.com/pitabwire/util v0.8.0
-	github.com/redis/go-redis/v9 v9.18.0
+	github.com/redis/go-redis/v9 v9.19.0
 	github.com/rs/xid v1.6.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/time v0.15.0
@@ -27,7 +27,6 @@ require (
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
