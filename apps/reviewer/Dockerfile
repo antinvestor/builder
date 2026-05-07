@@ -1,6 +1,3 @@
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
-
 # ---------- Builder ----------
 FROM --platform=$BUILDPLATFORM golang:1.26 AS builder
 
