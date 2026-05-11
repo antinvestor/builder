@@ -1,0 +1,11 @@
+name: Dockerfile Multi-Arch Lint
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  lint:
+    permissions:
+      contents: read
+    uses: antinvestor/common/.github/workflows/dockerfile-lint.yml@main
