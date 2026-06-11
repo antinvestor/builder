@@ -7,7 +7,7 @@ toolchain go1.26.1
 require (
 	github.com/boundaryml/baml v0.222.0
 	github.com/docker/docker v28.5.2+incompatible
-	github.com/pitabwire/frame v1.98.1
+	github.com/pitabwire/frame v1.98.4
 	github.com/pitabwire/util v0.9.1
 	github.com/redis/go-redis/v9 v9.20.0
 	github.com/rs/xid v1.6.0
@@ -101,7 +101,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	gocloud.dev v0.46.0 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
