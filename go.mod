@@ -9,7 +9,7 @@ require (
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/pitabwire/frame v1.98.4
 	github.com/pitabwire/util v0.9.1
-	github.com/redis/go-redis/v9 v9.20.1
+	github.com/redis/go-redis/v9 v9.21.0
 	github.com/rs/xid v1.6.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/time v0.15.0
@@ -67,7 +67,7 @@ require (
 	github.com/prometheus/common v0.69.0 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
-	github.com/spiffe/go-spiffe/v2 v2.8.0 // indirect
+	github.com/spiffe/go-spiffe/v2 v2.8.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0 // indirect
 	go.opentelemetry.io/contrib/bridges/prometheus v0.69.0 // indirect
