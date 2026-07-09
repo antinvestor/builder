@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/pitabwire/frame/config"
+	"github.com/pitabwire/frame/v2/config"
 )
 
 // WebhookConfig defines configuration for the webhook service.

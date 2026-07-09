@@ -294,7 +294,7 @@ func (c *BAMLClient) detectGoFramework(workspacePath string) string {
 		return "gin"
 	case strings.Contains(goMod, "github.com/labstack/echo"):
 		return "echo"
-	case strings.Contains(goMod, "github.com/pitabwire/frame"):
+	case strings.Contains(goMod, "github.com/pitabwire/frame/v2"):
 		return "frame"
 	}
 	return ""

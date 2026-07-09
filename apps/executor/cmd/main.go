@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pitabwire/frame"
-	"github.com/pitabwire/frame/config"
+	"github.com/pitabwire/frame/v2"
+	"github.com/pitabwire/frame/v2/config"
 	"github.com/pitabwire/util"
 
 	appconfig "github.com/antinvestor/builder/apps/executor/config"

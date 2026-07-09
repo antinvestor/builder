@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pitabwire/frame/queue"
+	"github.com/pitabwire/frame/v2/queue"
 	"github.com/pitabwire/util"
 
 	appconfig "github.com/antinvestor/builder/apps/webhook/config"
