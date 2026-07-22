@@ -7,7 +7,7 @@ toolchain go1.26.1
 require (
 	github.com/boundaryml/baml v0.223.0
 	github.com/docker/docker v28.5.2+incompatible
-	github.com/pitabwire/frame/v2 v2.0.7
+	github.com/pitabwire/frame/v2 v2.0.8
 	github.com/pitabwire/util v0.9.1
 	github.com/redis/go-redis/v9 v9.21.0
 	github.com/rs/xid v1.6.0
@@ -65,7 +65,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.24.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.70.0 // indirect
+	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.8.1 // indirect
