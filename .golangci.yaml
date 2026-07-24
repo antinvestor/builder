@@ -164,6 +164,12 @@ linters:
       # Default: 0.0
       package-average: 10.0
 
+    goconst:
+      # Pre-existing string literals in review/security analyzers are intentional
+      # domain vocabulary; keep signal without blocking releases.
+      min-len: 5
+      min-occurrences: 10
+
     depguard:
       # Rules to apply.
       #
