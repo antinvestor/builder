@@ -231,8 +231,8 @@ github.com/ory/keto/proto v0.13.0-alpha.0.0.20260420082854-eb334a7a5cf0 h1:huZxe
 github.com/ory/keto/proto v0.13.0-alpha.0.0.20260420082854-eb334a7a5cf0/go.mod h1:c2UboItfGpqIzXoXlxBRMCp3rQqO+Wx2ecsH25jcWxU=
 github.com/panjf2000/ants/v2 v2.12.1 h1:BWvU2wHpyXWxhhNXsGB6JXLCNbshyLd1QxvoAmZnu10=
 github.com/panjf2000/ants/v2 v2.12.1/go.mod h1:tSQuaNQ6r6NRhPt+IZVUevvDyFMTs+eS4ztZc52uJTY=
-github.com/pitabwire/frame/v2 v2.0.17 h1:I+7nhS2TibL2EWTUwydq/dwI+cPqS51/RIaHmtUhD+I=
-github.com/pitabwire/frame/v2 v2.0.17/go.mod h1:32j4Jr6Soom38QkLy67oGxf1F+jEj0wE0hdUkzMJDOk=
+github.com/pitabwire/frame/v2 v2.1.0 h1:40d3vSh6uCL0nd147Z1rbzgvJku1w6SmbchoPmW93V0=
+github.com/pitabwire/frame/v2 v2.1.0/go.mod h1:32j4Jr6Soom38QkLy67oGxf1F+jEj0wE0hdUkzMJDOk=
 github.com/pitabwire/natspubsub v0.8.4 h1:iXncMM/Fuvmyu3+VFDazOxKf5M3AWNQZdvLpM+NtKZ0=
 github.com/pitabwire/natspubsub v0.8.4/go.mod h1:h2S81+ro+eB1NeWWDbhK4EkEN/A72o7hnrDXTUq67Js=
 github.com/pitabwire/util v0.9.1 h1:V8Ag8TNGXoLztuTCbItj67MmQSS+ObEPzQipUCo2NKY=
