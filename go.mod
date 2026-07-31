@@ -132,6 +132,6 @@ require (
 	google.golang.org/grpc v1.83.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gorm.io/driver/postgres v1.6.0 // indirect
+	gorm.io/driver/postgres v1.6.1 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
 )
