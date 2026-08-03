@@ -5,7 +5,7 @@ go 1.26
 toolchain go1.26.1
 
 require (
-	github.com/boundaryml/baml v0.223.0
+	github.com/boundaryml/baml v0.224.0
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/pitabwire/frame/v2 v2.1.3
 	github.com/pitabwire/util v0.9.1
@@ -132,6 +132,6 @@ require (
 	google.golang.org/grpc v1.83.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gorm.io/driver/postgres v1.6.1 // indirect
+	gorm.io/driver/postgres v1.6.2 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
 )
