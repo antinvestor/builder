@@ -11,7 +11,7 @@ require (
 	github.com/pitabwire/util v0.9.1
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/xid v1.6.0
-	github.com/stretchr/testify v1.12.0
+	github.com/stretchr/testify v1.12.1
 	golang.org/x/time v0.15.0
 	gorm.io/gorm v1.31.2
 )
@@ -129,7 +129,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260807164820-c8921c73eeea // indirect
 	google.golang.org/grpc v1.83.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.2 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
 )
