@@ -7,7 +7,7 @@ toolchain go1.26.1
 require (
 	github.com/boundaryml/baml v0.226.1
 	github.com/docker/docker v28.5.2+incompatible
-	github.com/pitabwire/frame/v2 v2.1.6
+	github.com/pitabwire/frame/v2 v2.1.7
 	github.com/pitabwire/util v0.9.1
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/xid v1.6.0
