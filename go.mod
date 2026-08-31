@@ -1,13 +1,13 @@
 module github.com/antinvestor/builder
 
-go 1.26
+go 1.26.0
 
 toolchain go1.26.1
 
 require (
 	github.com/boundaryml/baml v0.226.1
 	github.com/docker/docker v28.5.2+incompatible
-	github.com/pitabwire/frame/v2 v2.1.4
+	github.com/pitabwire/frame/v2 v2.1.6
 	github.com/pitabwire/util v0.9.1
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/xid v1.6.0
@@ -73,7 +73,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/ory/keto/proto v0.13.0-alpha.0.0.20260420082854-eb334a7a5cf0 // indirect
 	github.com/panjf2000/ants/v2 v2.12.1 // indirect
-	github.com/pitabwire/natspubsub v0.8.4 // indirect
+	github.com/pitabwire/natspubsub v0.8.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
